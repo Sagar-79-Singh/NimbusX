@@ -135,6 +135,20 @@ FAULTS = [
         "'TextFormat' declares 'Number' twice with the same parameters",
     ),
     (
+        'member that does not exist on a typed local',
+        'src/NimbusX.Cli/CliApplication.cs',
+        'Directory.Exists(paths.LogsDirectory)',
+        'Directory.Exists(paths.LogsDir)',
+        "'paths' (AppPaths) has no member 'LogsDir'",
+    ),
+    (
+        'member that does not exist on a parameter',
+        'tests/NimbusX.Tests/GamesTests.cs',
+        'Assert.True(info.IsPe);',
+        'Assert.True(info.IsExecutable);',
+        "'info' (PeInfo) has no member 'IsExecutable'",
+    ),
+    (
         'syntax error that no regex would notice',
         'src/NimbusX.Core/AppInfo.cs',
         'public const string Name = "NimbusX";',

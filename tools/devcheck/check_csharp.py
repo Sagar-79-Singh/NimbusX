@@ -16,6 +16,7 @@ writing a large solution without an SDK on the build machine:
   * interface implementation and override validity for types declared in this solution
   * member existence on plain `Type.Member` references (see check_members.py)
   * constructor arity for `new Type(...)` (see check_calls.py)
+  * members of explicitly typed local variables and parameters (see check_locals.py)
   * full C# grammar validation with tree-sitter, when it is installed (see check_syntax.py)
   * the [ObservableProperty] / On...Changed contract (see check_toolkit.py)
   * DataTemplate bindings against the item type of the ItemsSource (see check_xaml.py)
@@ -29,6 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_calls
+import check_locals
 import check_members
 import check_packaging
 import check_syntax
@@ -327,6 +329,7 @@ def main():
     ERRORS.extend(check_types.check(sorted(cs_files)))
     ERRORS.extend(check_members.check(sorted(cs_files)))
     ERRORS.extend(check_calls.check(sorted(cs_files)))
+    ERRORS.extend(check_locals.check(sorted(cs_files)))
     ERRORS.extend(check_syntax.check(sorted(cs_files)))
     ERRORS.extend(check_toolkit.check(sorted(cs_files)))
     ERRORS.extend(check_packaging.check())

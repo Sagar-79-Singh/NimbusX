@@ -967,13 +967,13 @@ public sealed class CliApplication
         AppPaths paths = string.IsNullOrWhiteSpace(_dataRoot) ? AppPaths.CreateDefault() : new AppPaths(_dataRoot!);
         int tail = Math.Clamp(command.IntValue("tail", 40), 1, 2000);
 
-        if (!Directory.Exists(paths.LogsDir))
+        if (!Directory.Exists(paths.LogsDirectory))
         {
-            Write("No log folder yet at " + paths.LogsDir);
+            Write("No log folder yet at " + paths.LogsDirectory);
             return ExitOk;
         }
 
-        string? newest = Directory.EnumerateFiles(paths.LogsDir, "*.log")
+        string? newest = Directory.EnumerateFiles(paths.LogsDirectory, "*.log")
             .OrderByDescending(File.GetLastWriteTimeUtc)
             .FirstOrDefault();
 

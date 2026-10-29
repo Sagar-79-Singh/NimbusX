@@ -16,10 +16,10 @@ public sealed class PeInspectorTests
 
         PeInfo info = PeInspector.Inspect(path);
 
-        Assert.True(info.IsExecutable);
+        Assert.True(info.IsPe);
         Assert.Equal(PeMachine.X64, info.Machine);
         Assert.Equal(2, info.Subsystem);
-        Assert.Contains("graphical", info.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("graphical", info.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -30,9 +30,9 @@ public sealed class PeInspectorTests
 
         PeInfo info = PeInspector.Inspect(path);
 
-        Assert.True(info.IsExecutable);
+        Assert.True(info.IsPe);
         Assert.Equal(PeMachine.X86, info.Machine);
-        Assert.Contains("console", info.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("console", info.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -43,15 +43,15 @@ public sealed class PeInspectorTests
 
         PeInfo info = PeInspector.Inspect(path);
 
-        Assert.False(info.IsExecutable);
-        Assert.Contains("MZ", info.Description, StringComparison.Ordinal);
+        Assert.False(info.IsPe);
+        Assert.Contains("MZ", info.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
     public void A_missing_file_is_reported_instead_of_throwing()
     {
         PeInfo info = PeInspector.Inspect(Path.Combine(Path.GetTempPath(), "nimbusx-does-not-exist.exe"));
-        Assert.False(info.IsExecutable);
+        Assert.False(info.IsPe);
     }
 }
 

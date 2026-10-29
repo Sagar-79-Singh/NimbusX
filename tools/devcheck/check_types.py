@@ -125,6 +125,11 @@ def parse_types(path, text):
         r'(?::\s*(?P<bases>[^{\r\n]+))?')
 
     for match in pattern.finditer(text):
+        # `foreach (MountRecord record in ...)` also reads as "record" + a name; a declaration has a body,
+        # a base list, a parameter list or a constraint after the name.
+        following = text[match.end():match.end() + 40].lstrip()
+        if not following or following[0] not in '{(:<;':
+            continue
         brace = text.find('{', match.end() - 1 if match.group('bases') else match.end())
         if brace < 0:
             continue
@@ -152,6 +157,9 @@ def parse_types(path, text):
 
 
 MEMBER_PATTERNS = (
+    # Interface members often carry no access modifier at all: `IReadOnlyList<MountSnapshot> Snapshots { get; }`.
+    r'(?m)^[ \t]*(?:[A-Za-z_][\w<>\[\],\.\?\s]*?)\s+([A-Za-z_]\w*)\s*\{\s*(?:get|set|init)\b',
+    r'(?m)^[ \t]*(?:[A-Za-z_][\w<>\[\],\.\?\s]*?)\s+([A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*\(',
     r'(?:public|internal|private|protected|static|readonly|virtual|override|abstract|sealed|async|extern|new|partial|required|const|event|\s)+'
     r'(?:\([^()]*(?:\([^()]*\)[^()]*)*\)|[A-Za-z_][\w<>\[\],\.\?\s]*?)\s+([A-Za-z_]\w*)\s*(?:<[^>()]*>)?\s*\(',
     r'(?:public|internal|private|protected|static|readonly|virtual|override|abstract|sealed|new|required)\s+'
