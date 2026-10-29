@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Checks constructor arity for types declared in this solution.
+"""Checks argument counts for the calls the checker can resolve without a type system.
 
-`new MountRequest(account, drive)` where the only constructor takes one parameter is a compile error, and it is the
-most common mistake this codebase can make that the other passes cannot see. Optional parameters and `params`
-arrays widen the accepted range, and a class with no declared constructor only accepts `new T()`.
+Two shapes are resolvable by name alone:
+
+* `new T(...)` - compared with the constructors T declares. A class with no declared constructor only accepts
+  `new T()`.
+* `T.Method(...)` - compared with the methods T declares. Because the left side must be a type declared in this
+  solution, an instance method called through the type name (CS0120) is reported as well.
+
+Optional parameters and `params` arrays widen the accepted range. Types whose base class lives outside the
+solution are skipped, so framework members never produce a false positive.
 """
 import os
 import re
@@ -119,6 +125,90 @@ def _new_expressions(text):
         index = cursor + 1
 
 
+METHOD_PATTERN = re.compile(
+    r'(?P<mods>(?:\b(?:public|internal|private|protected|static|override|virtual|abstract|async|sealed|'
+    r'extern|unsafe|new|readonly)\b\s+)*)'
+    r'(?:[A-Za-z_][\w<>\[\],\.\?\s]*?)\s+(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*'
+    r'\((?P<params>[^()]*(?:\([^()]*\)[^()]*)*)\)')
+
+NOT_METHODS = {'if', 'for', 'foreach', 'while', 'switch', 'catch', 'using', 'lock', 'return', 'new', 'base',
+               'this', 'nameof', 'typeof', 'sizeof', 'default', 'checked', 'unchecked', 'when', 'get', 'set'}
+
+
+def build_method_index(paths):
+    """type name -> method name -> list of (min, max, is_static)."""
+    index = {}
+    bases = {}
+    for path in paths:
+        for decl in check_types.parse_types(path, open(path, encoding='utf-8').read()):
+            if decl.keyword not in ('class', 'struct'):
+                continue
+            table = index.setdefault(decl.name, {})
+            bases.setdefault(decl.name, set()).update(decl.bases)
+            for match in METHOD_PATTERN.finditer(decl.body):
+                name = match.group('name')
+                if name in NOT_METHODS or name == decl.name:
+                    continue
+                minimum, maximum = _parameter_range(_split_top_level(match.group('params')))
+                is_static = 'static' in (match.group('mods') or '')
+                table.setdefault(name, []).append((minimum, maximum, is_static))
+    return index, bases
+
+
+def _describe(allowed):
+    return ', '.join(sorted({
+        str(minimum) if minimum == maximum else (
+            f'{minimum}..' if maximum == INFINITY else f'{minimum}..{maximum}')
+        for minimum, maximum, _ in allowed}))
+
+
+def check_static_calls(paths, index, bases):
+    declared_types = set(index)
+    framework_derived = {name for name, parents in bases.items() if any(p not in declared_types for p in parents)}
+    errors = []
+    for path in paths:
+        text = check_types._strip_comments(open(path, encoding='utf-8').read())
+        rel = os.path.relpath(path, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        seen = set()
+        for match in re.finditer(r'(?<![\w.])([A-Z]\w*)\.([A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*\(', text):
+            type_name, method = match.group(1), match.group(2)
+            allowed = index.get(type_name, {}).get(method)
+            if not allowed or type_name in framework_derived:
+                continue
+            position = match.end() - 1
+            depth = 0
+            end = position
+            while end < len(text):
+                if text[end] == '(':
+                    depth += 1
+                elif text[end] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                end += 1
+            parameters = _split_top_level(text[position + 1:end])
+            count = 0 if len(parameters) == 1 and not parameters[0].strip() else len(parameters)
+            if any(not parameter.strip() for parameter in parameters):
+                continue
+            line = text.count('\n', 0, position) + 1
+            if any(minimum <= count <= maximum for minimum, maximum, _ in allowed):
+                if any(is_static for _, _, is_static in allowed):
+                    continue
+                key = (type_name, method, 'instance')
+                if key not in seen:
+                    seen.add(key)
+                    errors.append(
+                        f"{rel}:{line}: '{type_name}.{method}' is an instance method, it needs a receiver")
+                continue
+            key = (type_name, method, count)
+            if key in seen:
+                continue
+            seen.add(key)
+            errors.append(
+                f"{rel}:{line}: '{type_name}.{method}' takes {_describe(allowed)} argument(s) but got {count}")
+    return errors
+
+
 def check(paths):
     ranges = build_constructor_index(paths)
     errors = []
@@ -144,6 +234,9 @@ def check(paths):
                 for minimum, maximum in allowed}))
             line = text.count('\n', 0, position) + 1
             errors.append(f"{rel}:{line}: 'new {name}' takes {expected} argument(s) but got {count}")
+
+    method_index, bases = build_method_index(paths)
+    errors.extend(check_static_calls(paths, method_index, bases))
     return errors
 
 

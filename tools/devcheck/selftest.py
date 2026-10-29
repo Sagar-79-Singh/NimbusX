@@ -99,6 +99,20 @@ FAULTS = [
         "'new RcloneBinaryInfo' takes 7 argument(s) but got 2",
     ),
     (
+        'static helper called with too few arguments',
+        'src/NimbusX.Providers/CloudAccount.cs',
+        'return ByteSize.Format(QuotaUsedBytes.Value) + " of "',
+        'return ByteSize.Format() + " of "',
+        "'ByteSize.Format' takes 1 argument(s) but got 0",
+    ),
+    (
+        'instance method called through the type name',
+        'tests/NimbusX.Tests/CoreTests.cs',
+        'string path = folder.Combine("settings.json");\n',
+        'string path = folder.Combine("settings.json");\n        AppPaths.EnsureCreated();\n',
+        "'AppPaths.EnsureCreated' is an instance method",
+    ),
+    (
         'syntax error that no regex would notice',
         'src/NimbusX.Core/AppInfo.cs',
         'public const string Name = "NimbusX";',
