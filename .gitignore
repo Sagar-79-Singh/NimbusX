@@ -18,6 +18,10 @@ deps/terabox/**
 *.zip
 !installer/**/*.iss
 
+# Python helper scripts
+__pycache__/
+*.pyc
+
 # Local data / secrets / caches
 *.log
 *.nxs

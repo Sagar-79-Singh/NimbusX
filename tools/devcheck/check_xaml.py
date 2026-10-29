@@ -18,7 +18,14 @@ XAML_NS = '{http://schemas.microsoft.com/winfx/2006/xaml}'
 # Members every view model gets from PageViewModel / ObservableObject.
 BASE_MEMBERS = {
     'IsBusy', 'Error', 'HasError', 'Title', 'Subtitle', 'Glyph', 'Services', 'Logger',
-    'RefreshAsync', 'Dispose',
+    'RefreshAsync', 'RefreshNowCommand', 'Dispose',
+}
+
+# Windows whose DataContext is set in code-behind rather than by naming convention.
+WINDOW_VIEW_MODELS = {
+    'MainWindow': 'MainViewModel',
+    'AddAccountWindow': 'ConnectViewModel',
+    'WizardWindow': 'WizardViewModel',
 }
 
 # WPF members that are always valid on a binding target.
@@ -142,14 +149,33 @@ def check(root):
         # The view model this file binds against, by naming convention.
         stem = os.path.splitext(os.path.basename(path))[0]
         page_members = set(BASE_MEMBERS) | FRAMEWORK_MEMBERS
+        vm_name = None
         if stem.endswith('View'):
             vm_name = stem[:-4] + 'ViewModel'
+        elif stem in WINDOW_VIEW_MODELS:
+            vm_name = WINDOW_VIEW_MODELS[stem]
+
+        if vm_name is not None:
             page_members |= types.get(vm_name, set())
 
         for segment, full in _binding_paths(cleaned):
             if segment in page_members or segment in all_members:
                 continue
             errors.append(f"{rel}: binding '{{Binding {full}}}' has no matching member on {stem} or any view model")
+
+        # Stronger check: bindings outside a DataTemplate bind against the page view model itself. Inside a
+        # DataTemplate the item type is not known statically, so those stay on the permissive pass above.
+        if vm_name is None:
+            continue
+
+        # A window's DataContext is set in code-behind; LoginWindow has none (it only shows a page).
+        outer = re.sub(r'<DataTemplate\b.*?</DataTemplate>', '', cleaned, flags=re.S)
+        outer = re.sub(r'<HierarchicalDataTemplate\b.*?</HierarchicalDataTemplate>', '', outer, flags=re.S)
+        for segment, full in _binding_paths(outer):
+            if segment in page_members:
+                continue
+            errors.append(
+                f"{rel}: binding '{{Binding {full}}}' is used outside a DataTemplate but is not a member of {vm_name}")
 
         for key in re.findall(r'\{StaticResource\s+([^}]+)\}', cleaned):
             name = key.strip()

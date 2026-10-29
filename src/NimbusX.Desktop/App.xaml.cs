@@ -55,7 +55,8 @@ public partial class App : Application
         _lifetime = new CancellationTokenSource();
         _mainViewModel = new MainViewModel(_host);
 
-        MainWindow window = new(_mainViewModel);
+        // Fully qualified: Application.MainWindow is a property, so the bare name would be a compile error.
+        NimbusX.Desktop.MainWindow window = new(_mainViewModel);
         MainWindow = window;
         window.Show();
 

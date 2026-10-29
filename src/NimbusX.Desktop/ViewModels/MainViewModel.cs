@@ -130,8 +130,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _ = value.RefreshAsync(CancellationToken.None);
     }
 
+    /// <summary>Refreshes every page in order. Public because the wizard and the app shell both call it.</summary>
     [RelayCommand]
-    private async Task RefreshAllAsync()
+    public async Task RefreshAllAsync()
     {
         foreach (PageViewModel page in _pages)
         {
