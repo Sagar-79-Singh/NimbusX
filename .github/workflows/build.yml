@@ -399,6 +399,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -415,6 +416,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
           # One pattern per line: braces are not part of the glob syntax download-artifact accepts.
           pattern: |
             NimbusX-win-x64-exe
@@ -426,13 +428,26 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp "artifacts/NimbusX-win-x64-exe/NimbusX.exe" "dist/NimbusX-$VERSION-win-x64.exe"
-          cp "artifacts/cpx-win-x64/cpx.exe" "dist/cpx-$VERSION-win-x64.exe"
-          installer="$(ls artifacts/NimbusX-Setup/NimbusX-Setup-*.exe | head -n 1)"
-          cp "$installer" "dist/$(basename "$installer")"
+          # Look the files up rather than assuming how the artifacts were laid out on disk.
+          find artifacts -type f -printf '%10s  %p\n' | sort -k2 | tee diagnostics.txt
+
+          exe="$(find artifacts -type f -name 'NimbusX.exe' | head -n 1)"
+          cpx="$(find artifacts -type f -name 'cpx.exe' | head -n 1)"
+          setup="$(find artifacts -type f -name 'NimbusX-Setup-*.exe' | head -n 1)"
+          for pair in "NimbusX.exe:$exe" "cpx.exe:$cpx" "NimbusX-Setup-*.exe:$setup"; do
+            if [ -z "${pair#*:}" ]; then
+              echo "::error::${pair%%:*} was not in the downloaded artifacts"
+              exit 1
+            fi
+          done
+
+          cp "$exe" "dist/NimbusX-$VERSION-win-x64.exe"
+          cp "$cpx" "dist/cpx-$VERSION-win-x64.exe"
+          cp "$setup" "dist/$(basename "$setup")"
           cd dist
           sha256sum *.exe | tee SHA256SUMS.txt
-          ls -l
+          ls -l | tee -a ../diagnostics.txt
+          echo "Release files ready for v$VERSION"
 
       - name: Create or update the release
         shell: bash
@@ -449,3 +464,25 @@ jobs:
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --latest --title "NimbusX $VERSION"
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url,assets \
             -q '.url + " -> " + ([.assets[].name] | join(", "))'
+
+      - name: Report a failure on the merged pull request
+        # The run log is not always reachable from where this is watched; a comment is.
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          {
+            echo '**The `release` job failed.** The other jobs of this run may still be green.'
+            echo ''
+            echo '```'
+            if [ -f diagnostics.txt ]; then cat diagnostics.txt; else echo 'no diagnostics were written'; fi
+            echo '```'
+          } > /tmp/body.md
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" -q '.[0].number' 2>/dev/null || true)"
+          if [ -n "${pr:-}" ] && [ "${pr:-null}" != "null" ]; then
+            gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body-file /tmp/body.md
+          else
+            cat /tmp/body.md
+          fi
