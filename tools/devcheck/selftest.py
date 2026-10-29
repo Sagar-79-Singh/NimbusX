@@ -113,6 +113,20 @@ FAULTS = [
         "'AppPaths.EnsureCreated' is an instance method",
     ),
     (
+        'DataTemplate binding that the item type does not have',
+        'src/NimbusX.Desktop/Views/AcceleratorView.xaml',
+        '<TextBlock Text="{Binding DisplayFolder}"',
+        '<TextBlock Text="{Binding DisplayFolders}"',
+        "'{Binding DisplayFolders}' in a DataTemplate over 'Games' has no member 'DisplayFolders' on GameEntry",
+    ),
+    (
+        'partial OnChanged method that no longer matches the generated property',
+        'src/NimbusX.Desktop/ViewModels/AccountRowViewModel.cs',
+        'partial void OnIsMountedChanged(bool value)',
+        'partial void OnIsMountedChanged(string value)',
+        'but the generated property IsMounted is bool',
+    ),
+    (
         'syntax error that no regex would notice',
         'src/NimbusX.Core/AppInfo.cs',
         'public const string Name = "NimbusX";',

@@ -72,6 +72,110 @@ def _collect_csharp_types(cs_files):
     return types
 
 
+def _collect_member_types(cs_files):
+    """class name -> {member name: declared type text} for properties, fields and generated properties."""
+    table = {}
+    for path in cs_files:
+        try:
+            text = open(path, encoding='utf-8').read()
+        except OSError:
+            continue
+        body = re.sub(r'//.*', '', text)
+        body = re.sub(r'/\*.*?\*/', '', body, flags=re.S)
+
+        members = {}
+        for match in re.finditer(
+                r'(?:public|internal|private|protected)\s+(?:static\s+|readonly\s+|override\s+|virtual\s+|required\s+)*'
+                r'([A-Za-z0-9_<>?.,\[\]\s]+?)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\{|=>|;|\()', body):
+            members.setdefault(match.group(2), match.group(1).strip())
+        for match in re.finditer(
+                r'\[ObservableProperty\][^;{]*?(?:private|protected|internal)\s+([A-Za-z0-9_<>?.,\[\]]+)\s+_([A-Za-z0-9_]+)',
+                body, flags=re.S):
+            members[match.group(2)[0].upper() + match.group(2)[1:]] = match.group(1)
+
+        for match in re.finditer(
+                r'^\s*(?:public|internal)\s+(?:sealed\s+|static\s+|abstract\s+|partial\s+|readonly\s+)*'
+                r'(?:class|struct|interface|enum|record)\s+([A-Za-z0-9_]+)', body, re.M):
+            table.setdefault(match.group(1), {}).update(members)
+    return table
+
+
+def _element_type(declared):
+    """Element type of a collection property such as ObservableCollection<GameEntry>, or None."""
+    if not declared:
+        return None
+    match = re.search(r'<\s*([A-Za-z_][\w.]*)\s*>', declared)
+    if match:
+        return match.group(1).split('.')[-1]
+    return None
+
+
+def _check_template_bindings(path, vm_name, member_types, type_members):
+    """Bindings inside a DataTemplate must exist on the item type of the ItemsSource that uses it."""
+    rel = os.path.relpath(path, ROOT_DIR)
+    raw = _strip_comments(open(path, encoding='utf-8').read())
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return []
+
+    parents = {}
+    for parent in root.iter():
+        for child in parent:
+            parents[child] = parent
+
+    errors = []
+    for element in root.iter():
+        tag = element.tag.split('}')[-1]
+        if tag not in ('DataTemplate', 'HierarchicalDataTemplate'):
+            continue
+
+        owner = parents.get(element)
+        items_source = None
+        while owner is not None:
+            items_source = owner.get('ItemsSource')
+            if items_source:
+                break
+            owner = parents.get(owner)
+        if not items_source:
+            continue
+
+        match = re.fullmatch(r'\{Binding\s+(?:Path=)?([A-Za-z_][\w.]*)\}', items_source.strip())
+        if not match:
+            continue
+        property_name = match.group(1).split('.')[0]
+        declared = member_types.get(vm_name, {}).get(property_name)
+        if declared is None:
+            declared = member_types.get(vm_name, {}).get(property_name[0].upper() + property_name[1:])
+        item_type = _element_type(declared)
+        if item_type is None:
+            continue
+        item_members = type_members.get(item_type)
+        if not item_members:
+            continue
+
+        text = ET.tostring(element, encoding='unicode')
+        for binding in re.findall(r'\{Binding\s+([^}]*)\}', text):
+            body = binding.strip()
+            if not body or 'RelativeSource' in body or 'ElementName' in body or 'Source=' in body:
+                continue
+            head = body.split(',')[0].strip()
+            if '=' in head:
+                head = head.split('=', 1)[1].strip()
+            head = head.strip("'\"")
+            if not head or head.startswith('('):
+                continue
+            segment = re.split(r'[.\[]', head)[0]
+            if not segment or not segment[0].isalpha():
+                continue
+            if segment in item_members or segment in FRAMEWORK_MEMBERS:
+                continue
+            errors.append(
+                f"{rel}: binding '{{Binding {head}}}' in a {tag} over '{property_name}' has no member "
+                f"'{segment}' on {item_type}")
+    return errors
+
+
 def _collect_resource_keys(xaml_files):
     keys = set()
     for path in xaml_files:
@@ -227,6 +331,7 @@ def check(root):
         return errors, warnings
 
     types = _collect_csharp_types(cs_files)
+    member_types = _collect_member_types(cs_files)
     all_members = set(BASE_MEMBERS) | FRAMEWORK_MEMBERS
     for members in types.values():
         all_members |= members
@@ -287,6 +392,9 @@ def check(root):
             class_name = match.group(1).split('.')[-1]
             if class_name not in types:
                 errors.append(f"{rel}: x:Class '{match.group(1)}' has no code-behind class {class_name}")
+
+        if vm_name is not None:
+            errors.extend(_check_template_bindings(path, vm_name, member_types, types))
 
         errors.extend(_check_names(path))
         errors.extend(_check_custom_attributes(path, types))
