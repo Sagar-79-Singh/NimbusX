@@ -167,7 +167,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $summary = Get-Content test.log | Select-String -Pattern '^(Passed!|Failed!)' | ForEach-Object { $_.Line.Trim() }
+          $summary = Get-Content test.log |
+            Select-String -Pattern 'Passed!|Failed!|Passed:|Total tests|Test Run' |
+            ForEach-Object { $_.Line.Trim() }
+          if (-not $summary) {
+            # Fall back to the tail of the run so the comment is never empty.
+            $summary = Get-Content test.log -Tail 12
+          }
           $body = @()
           $body += '**`dotnet test` passed on this commit.** '
           $body += ''
