@@ -157,6 +157,30 @@ jobs:
             gh pr comment ${{ github.event.pull_request.number }} --body-file test-errors.md
           }
 
+      - name: Post the test summary (manual runs)
+        # A manual run is what produces the numbers quoted in BUILD_STATUS.md, so it always says them out loud.
+        if: github.event_name == 'workflow_dispatch' && steps.test.outcome == 'success'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $summary = Get-Content test.log | Select-String -Pattern '^(Passed!|Failed!)' | ForEach-Object { $_.Line.Trim() }
+          $body = @()
+          $body += '**`dotnet test` passed on this commit.** '
+          $body += ''
+          $body += '```'
+          $body += $summary
+          $body += '```'
+          $body += "Runner: $env:ImageOS $env:ImageVersion, .NET $((dotnet --version).Trim())"
+          $body | Out-File -FilePath test-summary.md -Encoding utf8
+          Get-Content test-summary.md
+
+          # A manual run has no pull request in its payload, so look the open one up by branch name.
+          $pr = gh pr list --head $env:GITHUB_REF_NAME --state open --json number -q '.[0].number'
+          if ($pr) {
+            gh pr comment $pr --body-file test-summary.md
+          }
+
       - name: Fail the job when the tests failed
         if: steps.test.outcome == 'failure'
         run: exit 1
