@@ -58,15 +58,16 @@ The GitHub Actions workflows build the real executables on a Windows runner:
 
 | What | Where | Produces |
 |---|---|---|
-| every push to `main` / every pull request | **Actions → build → the run → Artifacts** | `NimbusX-win-x64-exe` (one self-contained `NimbusX.exe`), `NimbusX-win-x64-folder`, `cpx-win-x64`, plus `test-results` |
+| every push to `main` / every pull request | **Actions → build → the run → Artifacts** | `NimbusX-win-x64-exe` (one self-contained `NimbusX.exe`), `NimbusX-win-x64-folder`, `cpx-win-x64`, `NimbusX-Setup` (the installer, compiled by Inno Setup), plus `test-results` and `build-log` |
 | a tag such as `v1.0.0` (or *Run workflow* on **release**) | **Releases** | `NimbusX-Setup-<version>.exe`, a standalone `NimbusX-<version>-win-x64.exe`, `cpx-<version>-win-x64.exe` and `SHA256SUMS.txt` |
 
-So: merge, then open the green run on `main`, download `NimbusX-win-x64-exe` and run it — it is self-contained
-(the .NET runtime is inside the file) and needs no administrator rights. WinFsp is still a separate, visible install;
-NimbusX tells you exactly which build to get and verifies its SHA-256.
+So: open the newest green run, download `NimbusX-win-x64-exe` and run it — it is self-contained (the .NET runtime is
+inside the file) and needs no administrator rights. WinFsp is still a separate, visible install; NimbusX tells you
+exactly which build to get and verifies its SHA-256.
 
-> The workflows have never executed either — the machine that wrote this tree had no SDK and no network route to
-> NuGet. If the first run fails, its log is in the same run page; `BUILD_STATUS.md` explains what to look at first.
+> Every job of the `build` workflow — static checks, build, tests, publish, installer — is green on
+> `windows-latest` with .NET 10. What that does *not* prove is in `BUILD_STATUS.md`: no window has been shown, no drive
+> mounted and no provider contacted yet.
 
 ### From source
 
@@ -199,8 +200,11 @@ is the same one a real provider uses. It implements `OPTIONS`, `PROPFIND`, `GET`
 
 Read `BUILD_STATUS.md` before trusting anything here. In short:
 
-* This source tree was written in an environment **without the .NET SDK**, so it has not been compiled or executed by
-  the author of these files. `BUILD_STATUS.md` lists exactly what was and was not verified, and what to run first.
+* The code was written in an environment **without the .NET SDK or Windows**. The GitHub Actions pipeline then compiled
+  it on `windows-latest` with .NET 10, ran the whole test suite, published the self-contained `.exe` and compiled the
+  installer — all four jobs green. The 25 compiler errors the first runs found are fixed; `BUILD_STATUS.md` lists
+  exactly what is still unverified (no window has ever been shown, no drive has ever been mounted, no provider has
+  ever been contacted).
 * No cloud provider was contacted while building this. Provider behaviour comes from rclone 1.75.2's own source and
   its documented option names.
 * TeraBox is **experimental**: unofficial API, slow downloads, and a cookie that expires. The provider is labelled as

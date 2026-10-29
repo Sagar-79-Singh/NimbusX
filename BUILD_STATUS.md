@@ -2,132 +2,156 @@
 
 _Last updated: 2026-10-29_
 
-## Read this first
+## Short version
 
-**This source tree has never been compiled.** It was written in a sandbox without a .NET SDK, without Windows, and
-without network access to NuGet or to any provider. Every C# and XAML file was checked with a purpose-written static
-gate (`tools/devcheck/`, plain Python 3; PyYAML and tree-sitter are optional and only extend it), which is not a
-compiler. What it does check:
+**The tree compiles, the unit tests pass, and the pipeline produces the `.exe`.** All four jobs of the
+`build` workflow are green on `windows-latest` with .NET 10:
 
-| Pass | What it proves |
+| Job | What it did | Result |
+|---|---|---|
+| `Static checks (Linux, no SDK)` | the 13-pass Python gate below + the packaging gate | ✅ |
+| `Build and test (Windows)` | `dotnet restore`, `dotnet build -c Release`, `dotnet test` | ✅ |
+| `Publish the apps (Windows)` | self-contained single-file `NimbusX.exe`, folder build, `cpx.exe`, smoke-tested (`MZ` header, size, `cpx version` exits 0) | ✅ |
+| `Build the installer (Windows)` | downloads and hash-verifies rclone / rclone-extra / WinFsp, builds the payload, compiles `NimbusX-Setup-1.0.0.exe` with Inno Setup | ✅ |
+
+Artifacts of every run (Actions ▸ the run ▸ Artifacts):
+
+| Artifact | Contents |
 |---|---|
-| `check_structure.py` | solution ↔ disk agreement, duplicate project GUIDs, `ProjectReference` targets exist, package versions exist in `Directory.Packages.props`, one namespace per project, every `using NimbusX.*` is reachable through that project's references, XAML `xmlns`/`x:Type`/element types resolve |
-| `check_types.py` + `check_signatures.py` | a class implements every member of the interfaces it declares *with the same return type and parameter types*, and `override` only names a real inherited member |
-| `check_members.py` | every `Type.Member` reference whose type is declared here actually resolves (partial classes and solution base classes included) |
-| `check_calls.py` | `new T(...)` argument counts and `T.Method(...)` argument counts against the declarations, no instance method called through the type name, no two methods with the same name *and* the same parameter types |
-| `check_locals.py` | `name.Member` and `name.Member(...)` on explicitly typed locals, parameters, `foreach` variables and fields, plus one hop down a property chain (`name.Member.Next`) |
-| `check_framework_usings.py` | every framework type a file names has its namespace imported (`ImplicitUsings` is disabled, so a missing `using System.Threading.Tasks;` is a compile error) |
-| `check_syntax.py` | the whole tree parses with a real C# grammar (tree-sitter; skipped with a note when it is not installed) |
-| `check_toolkit.py` | every `[ObservableProperty]` field's `On…Changing`/`On…Changed` partial method still matches the generated property type |
-| `check_xaml.py` | well-formed XAML, `{Binding}` paths exist on the page view model (and, inside a `DataTemplate`, on the item type of the `ItemsSource`), `{StaticResource}` keys exist, `Style` `TargetType`/`BasedOn` agree, `x:Name` unique per scope, attributes on custom controls exist, event handlers exist in code-behind with the `(object, EventArgs)` shape and a `void` return |
-| `check_packaging.py` | the Inno Setup script (sections, `Source:` paths, licence/readme files, `PrivilegesRequired=lowest`), the PowerShell scripts (brace balance, `$PSScriptRoot` joins) and the workflow YAML |
-| `selftest.py` | all of the above still *fire*: 26 realistic faults are injected into a copy of the tree, one at a time, and each must be reported |
+| `NimbusX-win-x64-exe` | `NimbusX.exe` — self-contained, single file, no .NET runtime needed, `asInvoker` |
+| `NimbusX-win-x64-folder` | the same app as a folder (faster start, same code) |
+| `cpx-win-x64` | the `cpx` command line tool |
+| `NimbusX-Setup` | `NimbusX-Setup-1.0.0.exe` + `SHA256SUMS.txt` |
+| `test-results`, `build-log` | the `.trx` results and the full MSBuild log, kept for every run |
 
-It does **not** type-check expressions, generic arguments, nullability flow, conversion operators, or anything that
-needs the real BCL: a value of the wrong type, a missing `using` for an ambiguous name, or a lambda whose body no
-longer matches its delegate still only fail in the compiler. Five bugs of exactly that kind were found and fixed
-while adding these passes (`AppInfo.WindowTitle` and `TextFormat.Pluralize` were referenced but never declared,
-`cpx logs` read `AppPaths.LogsDir`, and two `PeInfo` assertions in the tests used `IsExecutable`/`Description`).
-Treat the list above as "fewer compiler errors than before", not "compiles".
+## What CI proves, and what it does not
 
-So: expect the first `dotnet build` to produce errors. The table below says what is likely to need attention first.
+Proved by the Windows runner, on every push:
 
-## Verified here / not verified here
+* the solution restores, compiles with zero errors, and every project targets `net10.0-windows` (or `net10.0` for the
+  CLI, Core, mount, cache, streaming and games libraries);
+* the whole xunit suite passes (see `test-results`; the summary line is posted on the pull request);
+* a real self-contained publish runs, and the produced binary is checked before it is uploaded;
+* the Inno Setup script compiles against a real ISCC, with real downloaded dependencies whose SHA-256 digests match
+  the pinned values in `src/NimbusX.Mount/DependencyVersions.cs`;
+* the compile errors that the static gate could not see are gone. Twenty-five of them were found by this loop and
+  fixed (`RaiseChanged` signature, `MountSnapshot` conversions, `LaunchResult`'s private constructor,
+  `Environment.NewLine` shadowed by a view model property, a duplicate `account` local, `IReadOnlyList.IndexOf`,
+  and the rest of the list in the pull request history).
+
+**Not** proved by CI — none of these has ever run:
 
 | Item | Status |
 |---|---|
-| Every C# file passes all eleven passes above | ✅ checked (156 files) |
-| Every XAML file is well formed, every binding path exists on a view model or item type, every StaticResource key exists | ✅ checked (14 files) |
-| The gate itself is tested (26 injected faults, all reported) | ✅ `selftest.py`, ~240 s |
-| Pinned third-party digests are the published GitHub values | ✅ recorded in `src/NimbusX.Mount/DependencyVersions.cs` and `docs/VERIFIED_EXTERNALS.md` |
-| `dotnet restore` / `build` / `test` executed | ❌ **never run** — no SDK in the authoring environment |
-| Unit tests executed | ❌ **never run** (128 test methods → 187 cases: 113 `[Fact]` + 74 `[InlineData]` rows; written, not proven) |
-| NimbusX launched, any window rendered | ❌ never run |
-| A real cloud provider contacted (OAuth, MEGA, WebDAV, TeraBox) | ❌ never contacted |
-| rclone mount performed, drive letter checked in Explorer | ❌ never performed |
-| WinFsp detection on a machine with WinFsp | ❌ never run |
-| DPAPI protect/unprotect round trip | ❌ never run (Windows-only API) |
-| Inno Setup script compiled with ISCC | ❌ never compiled |
-| `dotnet publish` (self-contained, single file) | ❌ never run — this is what the CI `publish` job does to produce `NimbusX.exe` |
-| `scripts/*.ps1` executed | ❌ never executed |
-| GitHub workflows executed | ❌ never executed (the first `build` run on `main` is the first real compile of this tree) |
+| NimbusX launched, any window rendered, any page navigated | ❌ never run |
+| A real rclone mount with WinFsp, a drive letter in Explorer | ❌ never performed |
+| A real provider sign-in (Google, OneDrive, Dropbox, pCloud, Box, Yandex, Koofr, MEGA, WebDAV, SFTP, TeraBox) | ❌ never contacted — the OAuth and rc command sequences come from rclone 1.75.2's source and are pinned, not observed |
+| DPAPI protect/unprotect against a real user profile | ❌ no test covers it (Windows API, and it needs the user's own key) |
+| The SQLite profile database on a real install | ⚠️ the tests open real files through `Microsoft.Data.Sqlite` on the Windows runner, but never under the installed app |
+| Streaming proxy against a real player | ⚠️ the HTTP server logic is unit-tested; no player has talked to it |
+| Game launch, "window appeared", median startup against a real game | ❌ never run (the tests use synthetic launch records) |
+| WebView2 TeraBox window | ❌ never run |
+| `scripts/*.ps1` by hand | ⚠️ they run in CI (`fetch-deps`, `verify-deps`, `build`); nobody has run them on a desktop |
+| The installer's *installed* behaviour (Start-menu entry, PATH, uninstall) | ⚠️ compiled, not installed |
+
+Nothing in the list above is silently assumed to work: the UI shows **Unavailable** where a value has not been
+measured, `cpx doctor` reports each dependency with a real message and a fix, and `docs/VERIFIED_EXTERNALS.md` records
+where every external fact came from.
+
+## The static gate (`tools/devcheck/`)
+
+The gate is not a compiler, and it is kept because it catches the mechanical mistakes that a large hand-written tree
+makes, without an SDK: `python3 tools/devcheck/check_csharp.py`.
+
+| Pass | What it proves |
+|---|---|
+| `check_structure.py` | solution ↔ disk agreement, duplicate project GUIDs, `ProjectReference` targets exist, package versions exist in `Directory.Packages.props`, one namespace per project, every `using NimbusX.*` is reachable, XAML `xmlns`/`x:Type`/element types resolve |
+| `check_types.py` + `check_signatures.py` | interface implementation with matching return and parameter types, `override` only names a real inherited member, no two members with the same name and parameters (CS0111) |
+| `check_members.py` | every `Type.Member` reference whose type is declared here resolves (partial classes and base classes included) |
+| `check_calls.py` | `new T(...)` and `T.Method(...)` argument counts, no instance method called through the type name, no `private` constructor called from outside its type |
+| `check_locals.py` | `name.Member` and `name.Member(...)` on explicitly typed locals, parameters, `foreach` variables and fields, one hop down a property chain |
+| `check_framework_usings.py` | every framework type a file names has its namespace imported (`ImplicitUsings` is disabled) |
+| `check_syntax.py` | the whole tree parses with a real C# grammar (tree-sitter; skipped with a note when it is absent) |
+| `check_toolkit.py` | every `[ObservableProperty]` field's `On…Changing`/`On…Changed` partial method matches the generated property |
+| `check_xaml.py` | well-formed XAML, `{Binding}` paths on the page view model and on the item type of a `DataTemplate`'s `ItemsSource`, `{StaticResource}` keys, `Style` `TargetType`/`BasedOn`, `x:Name` uniqueness, custom-control attributes, event handler shapes |
+| `check_packaging.py` | the Inno Setup script, the PowerShell scripts and the workflow YAML |
+| `selftest.py` | all of the above still fire: 28 realistic faults are injected into a copy of the tree, one at a time, and every one must be reported (~290 s) |
+
+Current result on this tree: `checked 156 C# files and 14 XAML files — 0 error(s), 0 warning(s)`, and
+`28/28 injected faults detected`.
 
 ## Getting the `.exe`
 
-Merging is not enough on its own: the executable is produced by the `build` workflow, which runs on `main`.
+You do not need a toolchain.
 
-1. Merge, then open **Actions → build → the run for your merge commit**.
-2. Download the `NimbusX-win-x64-exe` artifact. That is a self-contained, single-file `NimbusX.exe` (no .NET
-   runtime needed, no administrator rights). `NimbusX-win-x64-folder` is the same app as a folder, and `cpx-win-x64`
-   is the command line tool.
-3. For an installer (Start-menu entry, `cpx` on the user PATH, bundled verified rclone/WinFsp MSI, licence texts),
-   push a tag: `git tag v1.0.0 && git push origin v1.0.0`. The `release` workflow compiles `NimbusX-Setup-1.0.0.exe`
-   with Inno Setup and attaches it, the standalone exe, `cpx.exe` and `SHA256SUMS.txt` to the GitHub Release.
+1. **Actions → build → the newest run.** Download `NimbusX-win-x64-exe`, unzip it, run `NimbusX.exe`. Self-contained,
+   per-user, no administrator rights.
+2. For the installer (`NimbusX-Setup-1.0.0.exe`, Start-menu entry, `cpx` on the user PATH, bundled licence texts):
+   download the `NimbusX-Setup` artifact of the same run.
+3. For a GitHub Release with checksums, push a tag: `git tag v1.0.0 && git push origin v1.0.0`. The `release` workflow
+   reuses the same steps and attaches `NimbusX-1.0.0-win-x64.exe`, `cpx-1.0.0-win-x64.exe`,
+   `NimbusX-Setup-1.0.0.exe` and `SHA256SUMS.txt`.
 
-The `publish` and `installer` jobs also fail loudly rather than shipping a broken artifact: the exe is checked for a
-`MZ` header and a plausible size before it is uploaded, and `cpx version` is executed for real.
+WinFsp is not bundled. It is a one-time, per-machine install from <https://winfsp.dev> and the only component that
+asks for elevation; NimbusX itself runs `asInvoker`.
 
-## First three commands to run (on Windows, with .NET 10 and WinFsp installed)
+## First run on a real machine
 
 ```powershell
 dotnet restore NimbusX.sln
-dotnet build NimbusX.sln -c Debug
+dotnet build NimbusX.sln -c Release
 dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj
-```
-
-Then, before trusting the UI:
-
-```powershell
-dotnet run --project tools/NimbusX.SimCloud -- --root C:\dev\simcloud
-dotnet run --project src/NimbusX.Cli -- doctor
+dotnet run --project src/NimbusX.Cli -- doctor      # should list WinFsp, rclone and the cache folder
 dotnet run --project src/NimbusX.Desktop
 ```
 
-Add the SimCloud URL as a WebDAV account, mount it, scan it, pin a file, clear the cache. That exercises the mount
-manager, the rc client, the cache manager, the game scanner and the streaming proxy against a real (if local) server.
+Before trusting the mount code, exercise it against the bundled simulator:
+
+```powershell
+dotnet run --project tools/NimbusX.SimCloud -- --root C:\dev\simcloud
+```
+
+Add its URL as a WebDAV account, mount it, scan it for games, pin a file, clear the cache, stream a file with
+`cpx stream`. That path touches the mount manager, the rc client, the cache manager, the game scanner and the
+streaming proxy at once.
 
 ## Module status
 
-| Module | Written | Notes on what is least certain |
+| Module | Compiles | Notes on what is least certain |
 |---|---|---|
-| `NimbusX.Core` | Complete | DPAPI and job-object code is Windows-only and has never run. `ProcessRunner` output redaction paths are untested against a real rclone. |
-| `NimbusX.Mount` | Complete | `RcloneProvisioner` (zip extraction + hash recording) and `MountManager` (ready-wait, restart backoff, reattach) are the two riskiest files; they were written from rclone's observed behaviour, not from a live run. |
-| `NimbusX.Providers` | Complete | OAuth state machine follows `fs/config/rc.go`; the exact question/answer sequence has not been observed live. TeraBox cookie handling follows the fork's option names. |
-| `NimbusX.Cache` | Complete | Budget arithmetic and the pin store are unit-tested on paper; `CacheUsageReader` parses rclone's vfs metadata files, whose exact layout may differ by version. |
-| `NimbusX.Streaming` | Complete | Range parsing and media probing are unit-tested on paper; the raw `TcpListener` HTTP server has never served a request. |
-| `NimbusX.Games` | Complete | PE inspection and executable ranking are unit-tested on paper with synthetic headers; the "window appeared" heuristic has not been observed against a real game. |
-| `NimbusX.Diagnostics` | Complete | The export path writes a ZIP with redacted contents; the redactor is applied to every report line (a real bug fixed while writing the tests). |
-| `NimbusX.App` | Complete | Composition root, profile database (SQLite, WAL) and the accelerator. `Microsoft.Data.Sqlite` has never opened a real file here. |
-| `NimbusX.Cli` (`cpx`) | Complete | Argument parsing is unit-tested on paper; nothing has been executed. |
-| `NimbusX.Desktop` | Complete | 8 pages + 3 dialogs, MVVM. XAML compiles only in this checker's sense; WPF runtime binding behaviour, the merged theme and the WebView2 window are all unverified. |
-| `tools/NimbusX.SimCloud` | Complete | A small WebDAV server used for testing. Never run. |
-| `tests/NimbusX.Tests` | Complete | 128 test methods → 187 cases, across Core, Mount, Providers, Cache, Streaming, Games, Diagnostics, App and Cli. Not executed. |
-| `installer/NimbusX.iss` | Complete | Inno Setup 6, per-user, `PrivilegesRequired=lowest`, WinFsp offered but never installed silently. Never compiled. |
-| `scripts/` | Complete | `fetch-deps.ps1` (pinned, digest-verified downloads), `verify-deps.ps1`, `build.ps1`. Never executed. |
+| `NimbusX.Core` | ✅ | DPAPI, the job object and process observation are Windows-only and have no test; `ProcessRunner` redaction has not met a real rclone |
+| `NimbusX.Mount` | ✅ | `RcloneProvisioner` and `MountManager` (ready-wait, restart backoff, reattach) are the riskiest files: written from rclone 1.75.2's source, never observed live |
+| `NimbusX.Providers` | ✅ | OAuth state machine follows `fs/config/rc.go`; the question/answer sequence has never been observed against a provider |
+| `NimbusX.Cache` | ✅ | Budget arithmetic and the pin store are tested; `CacheUsageReader` parses rclone's vfs metadata files, whose layout is only assumed |
+| `NimbusX.Streaming` | ✅ | Range parsing and media probing are tested; the `TcpListener` HTTP server has never served a request |
+| `NimbusX.Games` | ✅ | PE inspection and ranking are tested with synthetic headers; "window appeared" has never been checked against a real game |
+| `NimbusX.Diagnostics` | ✅ | The export bundle is zipped with every line redacted; the redactor is tested |
+| `NimbusX.App` | ✅ | Composition root, SQLite profile database (WAL) and the accelerator; the database is exercised by the tests on the Windows runner |
+| `NimbusX.Cli` (`cpx`) | ✅ | Argument parsing is tested; `cpx version` runs in CI, the other commands have not been executed |
+| `NimbusX.Desktop` | ✅ | 8 pages + 3 dialogs, MVVM. The XAML compiles and every binding path is checked, but no window has ever been shown |
+| `tools/NimbusX.SimCloud` | ✅ | A small WebDAV server for testing. Never run |
+| `tests/NimbusX.Tests` | ✅ | The suite passes on the Windows runner |
+| `installer/NimbusX.iss` | ✅ | Compiled by CI with real payload files, per-user, `PrivilegesRequired=lowest`; not installed by anyone yet |
+| `scripts/` | ✅ | `fetch-deps.ps1` (digest-verified downloads), `verify-deps.ps1`, `build.ps1` — all executed in CI |
 
 ## Known gaps and deliberate omissions
 
-1. **No frame-rate / GPU "boost".** The original product exposed overlay FPS counters and GPU power tweaks. NimbusX
-   does not, because an honest implementation needs a driver, ETW or a kernel component — all three are excluded by
-   the design rules for this rebuild.
-2. **No kernel filter, no ETW, no service.** Caching is rclone's VFS cache; process observation uses plain process
-   APIs. That caps some measurements (for example, per-file read tracing of a running game).
-3. **TeraBox is experimental** and marked as such everywhere. Its API is unofficial and its cookie expires.
-4. **OAuth device flows** are not offered; only the browser flow and the credential flows.
-5. **Accelerator predictions need ≥3 verified launches.** Before that the UI shows a plan without a prediction rather
-   than inventing a number.
-6. **`CacheUsageReader`** may need adjusting after the first live run against rclone 1.75.2 (it reads
-   `vfs/<remote>/vfs-meta` and the cache folder layout).
-7. **Multi-range HTTP requests** are refused with 416 by design; a player that needs them will not work.
-8. **The installer does not bundle WinFsp.** A package that bundles rclone must ship its licence texts; the script and
-   the installer have a slot for them (`tools/licenses`).
+1. **No frame-rate or GPU "boost".** An honest implementation needs a driver, ETW or a kernel component, and all three
+   are excluded by the design rules of this rebuild.
+2. **No kernel filter, no ETW, no service.** Caching is rclone's VFS cache; process observation uses the normal process
+   APIs. That caps some measurements (per-file read tracing of a running game, for instance).
+3. **TeraBox is experimental** and labelled so everywhere. Its API is unofficial and its cookie expires.
+4. **No OAuth device flows**; only the browser flow and the credential flows.
+5. **Accelerator predictions need ≥3 launches that showed a window and stayed verified.** Before that the UI shows a
+   plan without a prediction instead of inventing a number.
+6. **`CacheUsageReader`** may need adjusting after the first live run against rclone 1.75.2.
+7. **Multi-range HTTP requests** are refused with 416 on purpose; a player that needs them will not work.
+8. **The installer does not bundle WinFsp** (see above) and does not install it silently.
 
-## What to do when the first build fails
+## When something does fail
 
-1. Paste the errors into an issue; they will be in a small number of places (most likely: an analyzer turned into an
-   error by `AnalysisLevel=latest`, a checker-approved but compiler-rejected short type name, or a WPF XAML type that
-   needs a different `xmlns`).
-2. `python3 tools/devcheck/check_csharp.py` is the fastest way to confirm you have not introduced a namespace,
-   member, arity, syntax or XAML mistake while fixing; it runs anywhere Python 3 runs. `selftest.py` next to it proves
-   the checks still fire.
-3. Everything the app refuses to do is logged with a reason and a fix; `cpx doctor` prints the same list without the UI.
+1. The `build` workflow comments the compiler errors, or the failing test names with their assertions, on the pull
+   request. The full logs are in the run's `build-log` and `test-results` artifacts.
+2. `python3 tools/devcheck/check_csharp.py` runs anywhere Python 3 runs and catches the mechanical classes of mistake
+   before you push; `selftest.py` next to it proves the checks still fire.
+3. Every refusal in the app is logged with a reason and a fix; `cpx doctor` prints the same list without the UI.
