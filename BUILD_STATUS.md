@@ -36,9 +36,9 @@ So: expect the first `dotnet build` to produce errors. The table below says what
 
 | Item | Status |
 |---|---|
-| Every C# file passes the nine passes listed above | ✅ checked (156 files) |
+| Every C# file passes all eleven passes above | ✅ checked (156 files) |
 | Every XAML file is well formed, every binding path exists on a view model or item type, every StaticResource key exists | ✅ checked (14 files) |
-| The gate itself is tested (19 injected faults, all reported) | ✅ `selftest.py`, ~130 s |
+| The gate itself is tested (24 injected faults, all reported) | ✅ `selftest.py`, ~220 s |
 | Pinned third-party digests are the published GitHub values | ✅ recorded in `src/NimbusX.Mount/DependencyVersions.cs` and `docs/VERIFIED_EXTERNALS.md` |
 | `dotnet restore` / `build` / `test` executed | ❌ **never run** — no SDK in the authoring environment |
 | Unit tests executed | ❌ **never run** (128 test methods → 187 cases: 113 `[Fact]` + 74 `[InlineData]` rows; written, not proven) |
