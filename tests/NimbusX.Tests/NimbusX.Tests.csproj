@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Tests</RootNamespace>
+    <AssemblyName>NimbusX.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NimbusX.Core\NimbusX.Core.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Mount\NimbusX.Mount.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Providers\NimbusX.Providers.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Cache\NimbusX.Cache.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Streaming\NimbusX.Streaming.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Games\NimbusX.Games.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Diagnostics\NimbusX.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.App\NimbusX.App.csproj" />
+    <ProjectReference Include="..\..\src\NimbusX.Cli\NimbusX.Cli.csproj" />
+  </ItemGroup>
+
+</Project>

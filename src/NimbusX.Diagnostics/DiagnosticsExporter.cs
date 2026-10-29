@@ -189,10 +189,12 @@ public sealed class DiagnosticsExporter
             builder.AppendLine();
             builder.AppendLine("User note");
             builder.AppendLine("---------");
-            builder.AppendLine(SecretRedactor.Redact(note));
+            builder.AppendLine(note);
         }
 
-        return builder.ToString();
+        // Every line leaves through the redactor, not just the user's note: provider error messages and mount
+        // summaries can carry tokens or cookies too, and this report is meant to be shareable.
+        return SecretRedactor.Redact(builder.ToString());
     }
 
     private static string BuildDependencyReport(DiagnosticsSnapshot snapshot)
@@ -206,7 +208,7 @@ public sealed class DiagnosticsExporter
             builder.AppendLine();
         }
 
-        return builder.ToString();
+        return SecretRedactor.Redact(builder.ToString());
     }
 
     private void AddLogFolder(ZipArchive archive, string folder, string entryPrefix, List<string> files, List<string> warnings)

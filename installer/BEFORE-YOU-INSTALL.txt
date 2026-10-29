@@ -1,0 +1,39 @@
+NimbusX - before you install
+============================
+
+NimbusX gives your cloud accounts a drive letter and keeps a local cache of what you use, so a game
+folder in Google Drive, OneDrive, Dropbox, pCloud, Box, Yandex Disk, Koofr, MEGA, WebDAV or SFTP
+behaves like a local folder.
+
+What this installer does
+------------------------
+  * Installs NimbusX for the current Windows user in %LOCALAPPDATA%\Programs\NimbusX.
+  * Does not ask for administrator rights and does not install a service, a driver or a Windows filter.
+  * Does not change any Windows security setting and does not add itself to PATH (there is an optional
+    task for the "cpx" command line tool if you want it).
+  * Bundles rclone 1.75.2 only when the package was built with verified binaries; otherwise NimbusX
+    shows the pinned download and its SHA-256 in Diagnostics.
+
+What NimbusX needs
+------------------
+  * Windows 10 version 1809 (build 17763) or newer, or Windows 11, 64-bit.
+  * WinFsp (https://winfsp.dev) to mount a drive. NimbusX detects it and offers the official installer;
+    WinFsp itself installs a file system driver and Windows will ask you to confirm that install.
+  * Microsoft Edge WebView2 runtime for the in-app sign-in window. Windows 11 and current Windows 10
+    builds ship it already.
+
+What NimbusX never does
+-----------------------
+  * It never deletes anything in your cloud. Removing an account only removes the local configuration.
+  * It never runs a game launcher, DRM or anti-cheat bypass, and it never injects code into a game.
+  * It never changes your security settings and never needs a kernel driver.
+  * It never puts a password, token or cookie on a command line or in a log file.
+
+Where your data lives
+---------------------
+  %LOCALAPPDATA%\NimbusX                     settings, accounts, mounts, game library
+  %LOCALAPPDATA%\NimbusX\logs                logs (secrets are redacted)
+  %LOCALAPPDATA%\NimbusX\tools               rclone and the TeraBox build, when bundled
+  your chosen cache folder                   the rclone VFS cache
+
+Uninstalling asks whether to delete that folder. Your cloud files are never affected.

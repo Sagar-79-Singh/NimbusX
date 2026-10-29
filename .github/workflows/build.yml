@@ -1,0 +1,87 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    name: Static checks (any OS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Braces, usings, TODO and XAML bindings
+        run: python3 tools/devcheck/check_csharp.py
+
+  build:
+    name: Build and test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore NimbusX.sln
+
+      - name: Build
+        run: dotnet build NimbusX.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj -c Release --no-build --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/results.trx'
+          if-no-files-found: warn
+
+  package:
+    name: Package (Windows)
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Fetch and verify pinned dependencies
+        shell: pwsh
+        run: ./scripts/fetch-deps.ps1 -Destination artifacts/payload/tools
+
+      - name: Build, test and publish
+        shell: pwsh
+        run: ./scripts/build.ps1 -SkipDependencies -Payload artifacts/payload -SelfContained
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.0 installer/NimbusX.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: NimbusX-Setup
+          path: artifacts/*.exe
+          if-no-files-found: error
