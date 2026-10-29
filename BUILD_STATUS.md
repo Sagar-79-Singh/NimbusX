@@ -14,6 +14,15 @@ _Last updated: 2026-10-29_
 | `Publish the apps (Windows)` | self-contained single-file `NimbusX.exe`, folder build, `cpx.exe`, smoke-tested (`MZ` header, size, `cpx version` exits 0) | ✅ |
 | `Build the installer (Windows)` | downloads and hash-verifies rclone / rclone-extra / WinFsp, builds the payload, compiles `NimbusX-Setup-1.0.0.exe` with Inno Setup | ✅ |
 
+The test step itself reports, verbatim, on the pull request:
+
+```
+Test Run Successful.
+Total tests: 190
+Passed: 190
+Runner: win25-vs2026, .NET 10.0.403
+```
+
 Artifacts of every run (Actions ▸ the run ▸ Artifacts):
 
 | Artifact | Contents |
@@ -30,7 +39,8 @@ Proved by the Windows runner, on every push:
 
 * the solution restores, compiles with zero errors, and every project targets `net10.0-windows` (or `net10.0` for the
   CLI, Core, mount, cache, streaming and games libraries);
-* the whole xunit suite passes (see `test-results`; the summary line is posted on the pull request);
+* the whole xunit suite passes: **190 of 190 tests** (`test-results` keeps the `.trx`; the summary line is posted
+  on the pull request by the workflow itself);
 * a real self-contained publish runs, and the produced binary is checked before it is uploaded;
 * the Inno Setup script compiles against a real ISCC, with real downloaded dependencies whose SHA-256 digests match
   the pinned values in `src/NimbusX.Mount/DependencyVersions.cs`;
