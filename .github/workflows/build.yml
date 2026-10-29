@@ -273,7 +273,8 @@ jobs:
     name: Build the installer (Windows)
     runs-on: windows-latest
     needs: [ build-and-test ]
-    if: github.event_name != 'pull_request'
+    # Also runs on pull requests: the installer is part of what has to be proven before a merge, and a
+    # tag push reuses the same steps in release.yml.
     steps:
       - uses: actions/checkout@v4
 
