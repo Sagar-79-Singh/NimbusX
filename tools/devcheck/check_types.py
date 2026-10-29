@@ -200,6 +200,16 @@ def interface_requirements(decl):
     return {name for name, needs in required.items() if needs}
 
 
+# A declaration starts a line and follows the previous member, so a call site such as `await Probe.Signature(...)`
+# never reads as a declaration. Modifiers, then a (possibly tuple) return type, then the name and the parameters.
+METHOD_SIGNATURE = re.compile(
+    r'(?m)^[ \t]*(?P<mods>(?:(?:public|internal|private|protected|static|override|virtual|abstract|async|'
+    r'sealed|extern|unsafe|new|partial)\s+)*)'
+    r'(?P<returns>(?:\([^()]*\)|[A-Za-z_][\w.]*(?:<[^<>();]*>)?(?:\?)?(?:\[\])*))'
+    r'\s+(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*'
+    r'\((?P<params>[^()]*(?:\([^()]*\)[^()]*)*)\)')
+
+
 def check(files):
     errors = []
     types = []
@@ -256,7 +266,61 @@ def check(files):
             if any(base in by_name for base in decl.bases) and name not in inherited:
                 errors.append(f"{decl.path}: {decl.name} overrides '{name}', but no base type declares it")
 
+    # 3. Two members with the same name and the same parameter types in one type is CS0111.
+    for decl in types:
+        if decl.keyword not in ('class', 'struct', 'record', 'interface'):
+            continue
+        seen = {}
+        for match in re.finditer(METHOD_SIGNATURE, decl.body):
+            name, parameters = match.group('name'), match.group('params')
+            if match.group('returns').strip() in ('class', 'struct', 'record', 'interface', 'delegate', 'event',
+                                                  'const', 'return', 'await', 'new', 'var'):
+                continue
+            if name == decl.name or name in ('if', 'for', 'foreach', 'while', 'switch', 'catch', 'using', 'lock',
+                                             'return', 'new', 'nameof', 'typeof', 'when'):
+                continue
+            signature = tuple(_parameter_types(parameters))
+            previous = seen.get((name, signature))
+            if previous is not None:
+                errors.append(
+                    f"{decl.path}: {decl.name} declares '{name}' twice with the same parameters")
+            seen[(name, signature)] = True
+
     return errors
+
+
+def _parameter_types(parameters):
+    """Parameter type names only, so `Foo(int a)` and `Foo(int b)` read as the same signature."""
+    types = []
+    text = parameters.strip()
+    if not text:
+        return types
+    depth = 0
+    current = []
+    parts = []
+    for character in text:
+        if character in '<([':
+            depth += 1
+        elif character in '>)]':
+            depth -= 1
+        if character == ',' and depth == 0:
+            parts.append(''.join(current))
+            current = []
+            continue
+        current.append(character)
+    parts.append(''.join(current))
+    for part in parts:
+        cleaned = part.split('=')[0].strip()
+        words = [word for word in re.split(r'\s+', cleaned)
+                 if word not in ('this', 'ref', 'out', 'in', 'params', 'scoped', 'readonly')]
+        if not words:
+            types.append('')
+            continue
+        type_text = ' '.join(words[:-1]) if len(words) > 1 else words[0]
+        if type_text.endswith('?'):
+            type_text = type_text  # nullable annotations do not change the signature
+        types.append(re.sub(r'\s+', ' ', type_text))
+    return types
 
 
 if __name__ == '__main__':

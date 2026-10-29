@@ -99,6 +99,13 @@ FAULTS = [
         "'new RcloneBinaryInfo' takes 7 argument(s) but got 2",
     ),
     (
+        'two members with the same name and parameters',
+        'src/NimbusX.Core/Text/ByteSize.cs',
+        '    public static string Format(long bytes)\n',
+        '    public static string Format(long bytes) => "x";\n\n    public static string Format(long bytes)\n',
+        "ByteSize declares 'Format' twice with the same parameters",
+    ),
+    (
         'private constructor called from outside its type',
         'src/NimbusX.Core/Windows/DriveLetter.cs',
         'public DriveLetter(char letter)',
