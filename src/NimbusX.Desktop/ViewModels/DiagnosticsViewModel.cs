@@ -209,8 +209,11 @@ public sealed partial class DiagnosticsViewModel : PageViewModel
     [RelayCommand]
     private async Task CopySummaryAsync()
     {
-        string text = Headline + Environment.NewLine + Environment +
-                      Environment.NewLine + string.Join(Environment.NewLine, Checks.Select(c => "[" + c.Severity + "] " + c.Area + ": " + c.Title + " — " + c.Detail));
+        // `Environment` is a property of this view model, so System.Environment must be spelled out.
+        string text = Headline + System.Environment.NewLine + Environment +
+                      System.Environment.NewLine +
+                      string.Join(System.Environment.NewLine,
+                          Checks.Select(c => "[" + c.Severity + "] " + c.Area + ": " + c.Title + " — " + c.Detail));
         try
         {
             System.Windows.Clipboard.SetText(text);

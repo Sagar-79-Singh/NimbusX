@@ -531,9 +531,9 @@ public sealed class CliApplication
                 if (string.IsNullOrWhiteSpace(id))
                 {
                     await services.Accounts.RefreshAllQuotasAsync(cancellationToken).ConfigureAwait(false);
-                    foreach (CloudAccount account in services.Accounts.Accounts)
+                    foreach (CloudAccount listed in services.Accounts.Accounts)
                     {
-                        Write(account.DisplayName + ": " + (account.QuotaText ?? "Unavailable"));
+                        Write(listed.DisplayName + ": " + (listed.QuotaText ?? "Unavailable"));
                     }
 
                     return ExitOk;
