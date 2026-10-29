@@ -14,6 +14,7 @@ writing a large solution without an SDK on the build machine:
   * project/solution structure: missing projects, references, package versions, TFM compatibility
   * namespace reachability across project references
   * interface implementation and override validity for types declared in this solution
+  * installer, build scripts and workflows (see check_packaging.py)
 
 Exit code 1 when an error is found.
 """
@@ -22,6 +23,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import check_packaging
 import check_structure
 import check_types
 import check_xaml
@@ -314,6 +316,7 @@ def main():
     ERRORS.extend(structure_errors)
 
     ERRORS.extend(check_types.check(sorted(cs_files)))
+    ERRORS.extend(check_packaging.check())
 
     print(f"checked {len(cs_files)} C# files and {xaml_count} XAML files")
     for warning in WARNINGS:

@@ -14,6 +14,7 @@ import re
 import xml.etree.ElementTree as ET
 
 XAML_NS = '{http://schemas.microsoft.com/winfx/2006/xaml}'
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Members every view model gets from PageViewModel / ObservableObject.
 BASE_MEMBERS = {
@@ -80,6 +81,104 @@ def _collect_resource_keys(xaml_files):
             continue
         keys.update(re.findall(r'x:Key="([^"]+)"', text))
     return keys
+
+
+
+# Elements that carry no Style of their own in any XAML file here; used to keep the TargetType check honest.
+# Properties every FrameworkElement/UIElement already has. Only the ones used in this tree are listed; the check
+# exists to catch a misspelled custom property, not to re-implement WPF.
+INHERITED_MEMBERS = {
+    'Width', 'Height', 'MinWidth', 'MinHeight', 'MaxWidth', 'MaxHeight', 'Margin', 'Padding',
+    'HorizontalAlignment', 'VerticalAlignment', 'Opacity', 'Visibility', 'Tag', 'Name', 'Cursor',
+    'ClipToBounds', 'SnapsToDevicePixels', 'UseLayoutRounding', 'IsEnabled', 'ToolTip', 'Style',
+    'LayoutTransform', 'RenderTransform', 'FlowDirection', 'Focusable', 'IsHitTestVisible',
+}
+
+_SKIP_ATTRS = {'x:Name', 'Name', 'x:Key', 'x:Class', 'x:Type', 'xmlns', 'mc:Ignorable', 'd:DesignHeight',
+               'd:DesignWidth', 'ResourceDictionary.MergedDictionaries', 'd:'}
+
+
+def _style_target_types(files):
+    """x:Key -> (TargetType, BasedOn) for every keyed Style in the tree."""
+    styles = {}
+    for path in files:
+        text = _strip_comments(open(path, encoding='utf-8').read())
+        for match in re.finditer(r'<Style\b([^>]*)>', text):
+            attributes = match.group(1)
+            key = re.search(r'x:Key="([^"]+)"', attributes)
+            if not key:
+                continue
+            target = re.search(r'TargetType="\{?(?:[A-Za-z_]\w*:)?([A-Za-z0-9_]+)\}?"', attributes)
+            based = re.search(r'BasedOn="\{StaticResource\s+([^}]+)\}"', attributes)
+            styles[key.group(1)] = (
+                target.group(1) if target else None,
+                based.group(1).strip() if based else None)
+    return styles
+
+
+def _check_styles(files):
+    """TargetType compatibility for Styles and the elements that use them."""
+    errors = []
+    styles = _style_target_types(files)
+
+    for key, (target, based) in styles.items():
+        if not based or based not in styles:
+            continue
+        inherited = styles[based][0]
+        if target and inherited and target != inherited:
+            errors.append(
+                f"Theme: style '{key}' is based on '{based}' whose TargetType is {inherited}, but its own "
+                f"TargetType is {target}")
+
+    for path in files:
+        rel = os.path.relpath(path, ROOT_DIR)
+        text = _strip_comments(open(path, encoding='utf-8').read())
+        for match in re.finditer(r'<(?:(\w+):)?(\w+)\b([^>]*)>', text):
+            prefix, element, attributes = match.group(1), match.group(2), match.group(3)
+            used = re.search(r'Style="\{StaticResource\s+([^}]+)\}"', attributes)
+            if not used:
+                continue
+            name = used.group(1).strip()
+            if name not in styles:
+                continue
+            target = styles[name][0]
+            if target and target != element:
+                errors.append(
+                    f"{rel}: <{element}> uses style '{name}' whose TargetType is {target}")
+    return errors
+
+
+def _check_names(path):
+    rel = os.path.relpath(path, ROOT_DIR)
+    text = _strip_comments(open(path, encoding='utf-8').read())
+    names = re.findall(r'x:Name="([^"]+)"', text)
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    return [f"{rel}: x:Name '{name}' is used more than once" for name in duplicates]
+
+
+def _check_custom_attributes(path, types):
+    """Attributes on a custom (clr-namespace) element must be a property that class declares."""
+    rel = os.path.relpath(path, ROOT_DIR)
+    text = _strip_comments(open(path, encoding='utf-8').read())
+    prefixes = dict(re.findall(r'xmlns:(\w+)="clr-namespace:([^";]+)(?:;assembly=[^"]*)?"', text))
+    errors = []
+
+    for match in re.finditer(r'<(\w+):(\w+)\b([^>]*?)/?>', text):
+        prefix, element, attributes = match.group(1), match.group(2), match.group(3)
+        namespace = prefixes.get(prefix)
+        if not namespace or not namespace.startswith('NimbusX'):
+            continue
+        members = types.get(element)
+        if members is None:
+            continue
+        for attribute, _ in re.findall(r'([A-Za-z_][\w.]*)="([^"]*)"', attributes):
+            if attribute.startswith('x:') or attribute in ('Name',):
+                continue
+            if '.' in attribute:
+                continue
+            if attribute not in members and attribute not in INHERITED_MEMBERS:
+                errors.append(f"{rel}: <{element}> has no property '{attribute}'")
+    return errors
 
 
 def _binding_paths(text):
@@ -189,6 +288,9 @@ def check(root):
             if class_name not in types:
                 errors.append(f"{rel}: x:Class '{match.group(1)}' has no code-behind class {class_name}")
 
+        errors.extend(_check_names(path))
+        errors.extend(_check_custom_attributes(path, types))
+
         # Event handlers must be defined in the code-behind.
         code_behind = os.path.splitext(path)[0] + '.xaml.cs'
         handlers = []
@@ -204,6 +306,8 @@ def check(root):
                 for handler in handlers:
                     if not re.search(r'\b' + re.escape(handler) + r'\s*\(', code):
                         errors.append(f"{rel}: event handler '{handler}' is not defined in {os.path.basename(code_behind)}")
+
+    errors.extend(_check_styles(sorted(xaml_files)))
 
     return errors, warnings
 
