@@ -106,7 +106,7 @@ Flags:
     public void Core_mount_flags_full_cache_and_disable_the_shared_rc_listener()
     {
         IReadOnlyList<string> flags = RcloneFlagCatalog.CoreMountFlags();
-        int mode = flags.IndexOf("--vfs-cache-mode");
+        int mode = flags.ToList().IndexOf("--vfs-cache-mode");
 
         Assert.True(mode >= 0);
         Assert.Equal("full", flags[mode + 1]);
