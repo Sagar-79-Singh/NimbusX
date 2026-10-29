@@ -120,12 +120,15 @@ jobs:
           compression-level: 0
 
       - name: Publish the GitHub Release
-        if: github.ref_type == 'tag'
+        # A tag push names the release; a manual run publishes the version that was typed into the inputs.
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: NimbusX ${{ steps.version.outputs.version }}
+          body_path: .github/release-notes.md
           files: |
             artifacts/dist/*.exe
             artifacts/NimbusX-Setup-*.exe
             artifacts/SHA256SUMS.txt
-          generate_release_notes: true
+          make_latest: true
           fail_on_unmatched_files: true

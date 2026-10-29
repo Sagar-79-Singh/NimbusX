@@ -44,7 +44,22 @@ WinFsp's own installer, which you run yourself.
 
 ## Install
 
-### From a release
+### From the release (no toolchain, no build step)
+
+**<https://github.com/Sagar-79-Singh/NimbusX/releases/latest>** — the pipeline publishes the release itself on every
+merge to `main`:
+
+| Asset | What it is |
+|---|---|
+| `NimbusX-Setup-1.0.0.exe` | the installer (per-user, no elevation) |
+| `NimbusX-1.0.0-win-x64.exe` | the app as one self-contained file |
+| `cpx-1.0.0-win-x64.exe` | the command line tool |
+| `SHA256SUMS.txt` | SHA-256 of the three files above |
+
+Verify before you run anything: `Get-FileHash NimbusX-Setup-1.0.0.exe -Algorithm SHA256` and compare it with the line
+in `SHA256SUMS.txt` (GitHub also shows a digest next to each asset).
+
+### From a release asset, step by step
 
 1. Download `NimbusX-Setup-<version>.exe` and `SHA256SUMS.txt`; verify the hash.
 2. Run the installer. It installs per user into `%LOCALAPPDATA%\Programs\NimbusX` and never asks for elevation.
@@ -58,8 +73,9 @@ The GitHub Actions workflows build the real executables on a Windows runner:
 
 | What | Where | Produces |
 |---|---|---|
-| every push to `main` / every pull request | **Actions → build → the run → Artifacts** | `NimbusX-win-x64-exe` (one self-contained `NimbusX.exe`), `NimbusX-win-x64-folder`, `cpx-win-x64`, `NimbusX-Setup` (the installer, compiled by Inno Setup), plus `test-results` and `build-log` |
-| a tag such as `v1.0.0` (or *Run workflow* on **release**) | **Releases** | `NimbusX-Setup-<version>.exe`, a standalone `NimbusX-<version>-win-x64.exe`, `cpx-<version>-win-x64.exe` and `SHA256SUMS.txt` |
+| **every merge to `main`** | **Releases** (and the run's Artifacts) | `NimbusX-<version>-win-x64.exe`, `cpx-<version>-win-x64.exe`, `NimbusX-Setup-<version>.exe`, `SHA256SUMS.txt` — created or updated automatically, no tagging |
+| every pull request | **Actions → build → the run → Artifacts** | `NimbusX-win-x64-exe`, `NimbusX-win-x64-folder`, `cpx-win-x64`, `NimbusX-Setup`, `test-results`, `build-log` (no release is published from a pull request) |
+| a tag such as `v1.0.1` (or *Run workflow* on **release**) | **Releases** | the same four files, built from that tag with the tag's version |
 
 So: open the newest green run, download `NimbusX-win-x64-exe` and run it — it is self-contained (the .NET runtime is
 inside the file) and needs no administrator rights. WinFsp is still a separate, visible install; NimbusX tells you
