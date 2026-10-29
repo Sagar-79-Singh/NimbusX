@@ -154,9 +154,9 @@ jobs:
           $body | Out-File -FilePath test-errors.md -Encoding utf8
 
           if ('${{ github.event_name }}' -eq 'pull_request') {
-            gh pr comment ${{ github.event.pull_request.number }} --edit-last --body-file test-errors.md
+            gh pr comment ${{ github.event.pull_request.number }} --repo $env:GITHUB_REPOSITORY --edit-last --body-file test-errors.md
             if ($LASTEXITCODE -ne 0) {
-              gh pr comment ${{ github.event.pull_request.number }} --body-file test-errors.md
+              gh pr comment ${{ github.event.pull_request.number }} --repo $env:GITHUB_REPOSITORY --body-file test-errors.md
             }
           }
 
@@ -178,11 +178,19 @@ jobs:
           $body | Out-File -FilePath test-summary.md -Encoding utf8
           Get-Content test-summary.md
 
-          # A manual run has no pull request in its payload, so look the open one up by branch name.
-          $pr = gh pr list --head $env:GITHUB_REF_NAME --state open --json number -q '.[0].number'
+          # A manual run has no pull request in its payload, so fall back to the open one for this branch.
+          $pr = '${{ github.event.pull_request.number }}'
+          if (-not $pr) {
+            $pr = gh pr list --repo $env:GITHUB_REPOSITORY --head $env:GITHUB_REF_NAME --state open --json number -q '.[0].number'
+          }
           if ($pr) {
-            gh pr comment $pr --edit-last --body-file test-summary.md
-            if ($LASTEXITCODE -ne 0) { gh pr comment $pr --body-file test-summary.md }
+            gh pr comment $pr --repo $env:GITHUB_REPOSITORY --edit-last --body-file test-summary.md
+            if ($LASTEXITCODE -ne 0) {
+              gh pr comment $pr --repo $env:GITHUB_REPOSITORY --body-file test-summary.md
+            }
+          }
+          else {
+            Write-Host 'No open pull request for this branch; the summary is in the log only.'
           }
 
       - name: Fail the job when the tests failed
