@@ -48,6 +48,9 @@ jobs:
   build-and-test:
     name: Build and test (Windows)
     runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -64,12 +67,63 @@ jobs:
         run: dotnet restore NimbusX.sln
 
       - name: Build
-        run: dotnet build NimbusX.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true -p:Version=${{ env.VERSION }}
+        id: build
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet build NimbusX.sln -c Release --no-restore `
+            -p:ContinuousIntegrationBuild=true -p:Version=$env:VERSION 2>&1 |
+            Tee-Object -FilePath build.log
+          exit $LASTEXITCODE
+
+      - name: Report the compiler errors
+        # Reads the compiler output back to the pull request, so the errors are visible without downloading a log.
+        if: steps.build.outcome == 'failure'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $errors = Select-String -Path build.log -Pattern ': error [A-Z]+[0-9]+' |
+            ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique
+          $warnings = Select-String -Path build.log -Pattern ': warning [A-Z]+[0-9]+' |
+            ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique
+
+          Write-Host "Compiler errors: $($errors.Count), warnings: $($warnings.Count)"
+          $errors | Select-Object -First 200 | ForEach-Object { Write-Host $_ }
+
+          $body = @()
+          $body += '**`dotnet build` failed on this commit.** '
+          $body += ''
+          $body += "$($errors.Count) error(s), $($warnings.Count) warning(s). First 80 unique errors:"
+          $body += ''
+          $body += '```'
+          $body += ($errors | Select-Object -First 80 | ForEach-Object { if ($_.Length -gt 400) { $_.Substring(0, 400) } else { $_ } })
+          $body += '```'
+          $body += ''
+          $body += "Full MSBuild log: the ``build-log`` artifact of run $env:GITHUB_RUN_ID."
+          $body | Out-File -FilePath errors.md -Encoding utf8
+
+          if ('${{ github.event_name }}' -eq 'pull_request') {
+            gh pr comment ${{ github.event.pull_request.number }} --body-file errors.md
+          }
 
       - name: Test
+        if: steps.build.outcome == 'success'
         run: >
           dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj -c Release --no-build
           --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal"
+
+      - name: Upload the MSBuild log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+
+      - name: Fail the job when the build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
 
       - name: Upload test results
         if: always()
