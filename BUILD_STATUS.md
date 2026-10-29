@@ -21,7 +21,7 @@ So: expect the first `dotnet build` to produce errors. The table below says what
 | Every XAML file is well formed, every binding path exists on a view model, every StaticResource key exists | ✅ checked (14 files) |
 | Pinned third-party digests are the published GitHub values | ✅ recorded in `src/NimbusX.Mount/DependencyVersions.cs` and `docs/VERIFIED_EXTERNALS.md` |
 | `dotnet restore` / `build` / `test` executed | ❌ **never run** — no SDK in the authoring environment |
-| Unit tests executed | ❌ **never run** (~120 test cases exist; they are written, not proven) |
+| Unit tests executed | ❌ **never run** (127 test methods, ~194 cases once `[InlineData]` rows expand; written, not proven) |
 | NimbusX launched, any window rendered | ❌ never run |
 | A real cloud provider contacted (OAuth, MEGA, WebDAV, TeraBox) | ❌ never contacted |
 | rclone mount performed, drive letter checked in Explorer | ❌ never performed |
@@ -65,7 +65,7 @@ manager, the rc client, the cache manager, the game scanner and the streaming pr
 | `NimbusX.Cli` (`cpx`) | Complete | Argument parsing is unit-tested on paper; nothing has been executed. |
 | `NimbusX.Desktop` | Complete | 8 pages + 3 dialogs, MVVM. XAML compiles only in this checker's sense; WPF runtime binding behaviour, the merged theme and the WebView2 window are all unverified. |
 | `tools/NimbusX.SimCloud` | Complete | A small WebDAV server used for testing. Never run. |
-| `tests/NimbusX.Tests` | Complete | ~120 cases across Core, Mount, Providers, Cache, Streaming, Games, Diagnostics, App and Cli. Not executed. |
+| `tests/NimbusX.Tests` | Complete | 127 test methods (~194 cases) across Core, Mount, Providers, Cache, Streaming, Games, Diagnostics, App and Cli. Not executed. |
 | `installer/NimbusX.iss` | Complete | Inno Setup 6, per-user, `PrivilegesRequired=lowest`, WinFsp offered but never installed silently. Never compiled. |
 | `scripts/` | Complete | `fetch-deps.ps1` (pinned, digest-verified downloads), `verify-deps.ps1`, `build.ps1`. Never executed. |
 
