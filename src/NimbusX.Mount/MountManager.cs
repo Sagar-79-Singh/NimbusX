@@ -79,8 +79,8 @@ public sealed class MountManager : IMountManager, IDisposable
 
     public event EventHandler<MountSnapshot>? SessionChanged;
 
-    /// <summary>Raises <see cref="SessionChanged"/> after a snapshot was mutated, so the UI and the CLI see it.</summary>
-    private void RaiseChanged(MountSnapshot snapshot) => SessionChanged?.Invoke(this, snapshot);
+    /// <summary>Raises <see cref="SessionChanged"/> with a fresh snapshot, so the UI and the CLI see the change.</summary>
+    private void RaiseChanged(MountSession session) => SessionChanged?.Invoke(this, session.ToSnapshot());
 
     public string ConfigPath => _paths.RcloneConfigFile;
 
