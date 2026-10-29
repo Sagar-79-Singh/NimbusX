@@ -98,6 +98,31 @@ public sealed class LaunchResult
 
     public static LaunchResult Fail(string gameId, string error, string fix, IReadOnlyList<string>? logTail = null) =>
         new(false, gameId, null, null, false, false, null, error, fix, null, logTail ?? Array.Empty<string>());
+
+    /// <summary>The outcome of a launch that NimbusX started and watched to the end of the verification window.</summary>
+    public static LaunchResult Completed(
+        string gameId,
+        int? processId,
+        double? startupSeconds,
+        bool windowAppeared,
+        bool verified,
+        int? exitCode,
+        string? error,
+        string? fix,
+        long? cacheBytesDuringLaunch,
+        IReadOnlyList<string> logTail) =>
+        new(
+            verified,
+            gameId,
+            processId,
+            startupSeconds,
+            windowAppeared,
+            verified,
+            exitCode,
+            error,
+            fix,
+            cacheBytesDuringLaunch,
+            logTail ?? Array.Empty<string>());
 }
 
 /// <summary>A game process NimbusX is currently watching.</summary>
@@ -396,8 +421,7 @@ public sealed class GameLauncher : IDisposable
             ", exit code " + (exitCode?.ToString(CultureInfo.InvariantCulture) ?? "n/a") + ").",
             "Games");
 
-        return new LaunchResult(
-            verified,
+        return LaunchResult.Completed(
             request.GameId,
             running.ProcessId,
             startupSeconds,
