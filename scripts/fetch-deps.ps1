@@ -158,7 +158,10 @@ foreach ($dependency in $selected) {
             Expand-VerifiedZip -ZipPath $file -TargetFolder (Join-Path $Destination $dependency.Folder)
         }
         'msi' {
-            $installerCopy = Join-Path $Destination $dependency.FileName
+            # The installer expects the MSI under tools\winfsp\ (see installer/NimbusX.iss).
+            $installerFolder = Join-Path $Destination $dependency.Folder
+            New-Item -ItemType Directory -Path $installerFolder -Force | Out-Null
+            $installerCopy = Join-Path $installerFolder $dependency.FileName
             Copy-Item -LiteralPath $file -Destination $installerCopy -Force
             Write-Host "    installer ready: $installerCopy" -ForegroundColor Green
             Write-Host "    WinFsp needs one elevated install. NimbusX will show this path when it is missing." -ForegroundColor Yellow
@@ -167,6 +170,21 @@ foreach ($dependency in $selected) {
             throw "Unknown dependency kind: $($dependency.Kind)"
         }
     }
+}
+
+Write-Step "Licences"
+# The binaries above are redistributed with NimbusX, so their licence texts travel with them. They live in
+# tools/licenses (fetched once from upstream and pinned in docs/VERIFIED_EXTERNALS.md) and are copied next to the
+# binaries; the installer puts them in {app}\licenses.
+$licenseSource = Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/licenses'
+if (Test-Path -LiteralPath $licenseSource) {
+    $licenseTarget = Join-Path $Destination 'licenses'
+    New-Item -ItemType Directory -Path $licenseTarget -Force | Out-Null
+    Copy-Item -Path (Join-Path $licenseSource '*') -Destination $licenseTarget -Force
+    Write-Host "    licence texts copied to $licenseTarget" -ForegroundColor Green
+}
+else {
+    Write-Warning "    no licence texts found at $licenseSource; the installer will ship without them."
 }
 
 Write-Step "Done"

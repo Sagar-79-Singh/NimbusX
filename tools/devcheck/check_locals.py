@@ -50,6 +50,7 @@ def check(paths):
     inherited = {name: check_members._with_bases(name, members, bases) for name in members}
     framework_derived = {name for name, parents in bases.items() if any(p not in declared for p in parents)}
     methods, _ = check_calls.build_method_index(paths)
+    member_types = check_members.build_member_types(paths)
 
     errors = []
     for path in paths:
@@ -82,6 +83,31 @@ def check(paths):
                         errors.append(
                             f"{rel}:{line}: '{variable}' ({'/'.join(sorted(types))}) has no member '{member}'")
                     continue
+
+                # One more hop: `name.Member.Next`, where Member's declared type is known.
+                following = re.match(r'\s*\.\s*([A-Za-z_]\w*)', text[match.end():])
+                if following:
+                    hop = following.group(1)
+                    declared_types = {
+                        member_types.get(name, {}).get(member) for name in resolvable}
+                    # `DriveLetter? letter` legitimately exposes HasValue/Value; only a non-nullable struct hides them.
+                    nullable = any((entry or '').strip().endswith('?') for entry in declared_types)
+                    declared_types = {
+                        re.sub(r'<.*', '', entry or '').strip().rstrip('?').replace('[]', '')
+                        for entry in declared_types}
+                    if nullable and hop in ('HasValue', 'Value', 'GetValueOrDefault'):
+                        targets = set()
+                    else:
+                        targets = {entry.split('.')[-1] for entry in declared_types if entry in declared}
+                    targets = {name for name in targets if hop not in inherited[name]}
+                    if targets and following.group(1) not in SKIP_MEMBERS:
+                        key = (variable, member, hop)
+                        if key not in reported:
+                            reported.add(key)
+                            line = text.count('\n', 0, match.start()) + 1
+                            errors.append(
+                                f"{rel}:{line}: '{variable}.{member}' is "
+                                f"{'/'.join(sorted(targets))} which has no member '{hop}'")
 
                 position = match.end()
                 while position < len(text) and text[position] in ' \t\r\n':

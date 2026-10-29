@@ -45,6 +45,22 @@ def build_index(paths):
     return members, bases
 
 
+def build_member_types(paths):
+    """type name -> {member name: declared type text} for properties and fields (methods excluded)."""
+    table = {}
+    pattern = re.compile(
+        r'(?:public|internal|private|protected)\s+(?:static\s+|readonly\s+|override\s+|virtual\s+|required\s+)*'
+        r'([A-Za-z0-9_<>?.,\[\]\s]+?)\s+([A-Za-z_]\w*)\s*(?:\{|=>|;|=)')
+    for path in paths:
+        for decl in check_types.parse_types(path, open(path, encoding='utf-8').read()):
+            if decl.keyword not in ('class', 'struct', 'record'):
+                continue
+            members = table.setdefault(decl.name, {})
+            for match in pattern.finditer(decl.body):
+                members.setdefault(match.group(2), match.group(1).strip())
+    return table
+
+
 def _with_bases(name, members, bases, seen=None):
     seen = seen or set()
     if name in seen:

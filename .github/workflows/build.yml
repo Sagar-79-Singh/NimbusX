@@ -1,5 +1,9 @@
 name: build
 
+# Every push to main and every pull request runs the static gate, the build, the tests and a real
+# self-contained publish, so a merge always leaves a downloadable NimbusX.exe behind (Actions ▸ this run ▸
+# Artifacts). Tags are handled by release.yml, which adds the installer and a GitHub Release.
+
 on:
   push:
     branches: [ main ]
@@ -10,19 +14,38 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  VERSION: 1.0.0
+
 jobs:
   static-checks:
-    name: Static checks (any OS)
+    name: Static checks (Linux, no SDK)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Braces, usings, TODO and XAML bindings
+
+      - name: Optional checker dependencies
+        # The gate degrades gracefully without these; installing them only adds the YAML and C# grammar passes.
+        run: pip install --disable-pip-version-check pyyaml tree-sitter tree-sitter-c-sharp
+
+      - name: Static gate over the whole tree
         run: python3 tools/devcheck/check_csharp.py
 
-  build:
+      - name: Prove the gate still catches faults
+        run: python3 tools/devcheck/selftest.py
+
+  build-and-test:
     name: Build and test (Windows)
     runs-on: windows-latest
     steps:
@@ -32,15 +55,21 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
 
       - name: Restore
         run: dotnet restore NimbusX.sln
 
       - name: Build
-        run: dotnet build NimbusX.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true
+        run: dotnet build NimbusX.sln -c Release --no-restore -p:ContinuousIntegrationBuild=true -p:Version=${{ env.VERSION }}
 
       - name: Test
-        run: dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj -c Release --no-build --logger "trx;LogFileName=results.trx"
+        run: >
+          dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj -c Release --no-build
+          --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal"
 
       - name: Upload test results
         if: always()
@@ -50,11 +79,10 @@ jobs:
           path: '**/results.trx'
           if-no-files-found: warn
 
-  package:
-    name: Package (Windows)
+  publish:
+    name: Publish the apps (Windows)
     runs-on: windows-latest
-    needs: build
-    if: github.event_name == 'workflow_dispatch'
+    needs: [ build-and-test ]
     steps:
       - uses: actions/checkout@v4
 
@@ -62,26 +90,138 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
+
+      - name: Publish NimbusX as one self-contained executable
+        shell: pwsh
+        run: |
+          dotnet publish src/NimbusX.Desktop/NimbusX.Desktop.csproj -c Release -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=none `
+            -p:Version=$env:VERSION `
+            -o artifacts/publish/single
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing the single-file executable failed.' }
+          New-Item -ItemType Directory -Force artifacts/dist | Out-Null
+          Copy-Item artifacts/publish/single/NimbusX.exe artifacts/dist/NimbusX.exe
+
+      - name: Upload NimbusX.exe
+        # Runs even when a later step fails, so a partially successful build still hands over the executable.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NimbusX-win-x64-exe
+          path: artifacts/dist/NimbusX.exe
+          if-no-files-found: warn
+          compression-level: 0
+
+      - name: Smoke test NimbusX.exe
+        if: always()
+        shell: pwsh
+        run: |
+          # The windowed app is not started here (a GUI on a headless runner would hang). Its PE header, size and
+          # version resource are checked instead; cpx, which is a console app, is executed for real further down.
+          $exe = 'artifacts/dist/NimbusX.exe'
+          if (-not (Test-Path $exe)) { throw "NimbusX.exe was not produced at $exe" }
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $exe))[0..1]
+          if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw 'NimbusX.exe is not a Windows PE image.' }
+          $size = (Get-Item $exe).Length
+          if ($size -lt 1MB) { throw "NimbusX.exe is only $size bytes, the publish did not work." }
+          Write-Host ("NimbusX.exe {0:N1} MB, file version {1}" -f ($size / 1MB), (Get-Item $exe).VersionInfo.FileVersion)
+
+      - name: Publish NimbusX as a folder (fallback if single-file extraction is not wanted)
+        shell: pwsh
+        run: |
+          dotnet publish src/NimbusX.Desktop/NimbusX.Desktop.csproj -c Release -r win-x64 `
+            --self-contained true -p:DebugType=none -p:Version=$env:VERSION -o artifacts/publish/app
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing the app folder failed.' }
+
+      - name: Upload the full app folder
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NimbusX-win-x64-folder
+          path: artifacts/publish/app/**
+          if-no-files-found: warn
+          compression-level: 6
+
+      - name: Publish cpx
+        shell: pwsh
+        run: |
+          dotnet publish src/NimbusX.Cli/NimbusX.Cli.csproj -c Release -r win-x64 `
+            --self-contained true -p:PublishSingleFile=true -p:DebugType=none `
+            -p:Version=$env:VERSION -o artifacts/publish/cli
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing cpx failed.' }
+          & 'artifacts/publish/cli/cpx.exe' version
+          if ($LASTEXITCODE -ne 0) { throw 'cpx version failed.' }
+
+      - name: Upload cpx.exe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpx-win-x64
+          path: artifacts/publish/cli/**
+          if-no-files-found: warn
+
+  installer:
+    name: Build the installer (Windows)
+    runs-on: windows-latest
+    needs: [ build-and-test ]
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: |
+            Directory.Packages.props
+            global.json
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: Fetch and verify pinned dependencies
+      - name: Fetch and verify the pinned dependencies
         shell: pwsh
         run: ./scripts/fetch-deps.ps1 -Destination artifacts/payload/tools
 
-      - name: Build, test and publish
+      - name: Verify the pinned dependencies
         shell: pwsh
-        run: ./scripts/build.ps1 -SkipDependencies -Payload artifacts/payload -SelfContained
+        run: ./scripts/verify-deps.ps1 -ToolsDirectory artifacts/payload/tools
 
-      - name: Build the installer
+      - name: Build the payload
+        shell: pwsh
+        run: ./scripts/build.ps1 -SkipDependencies -SkipTests -Version $env:VERSION -Payload artifacts/payload -SelfContained
+
+      - name: Compile the installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.0 installer/NimbusX.iss
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe was not found at $iscc" }
+          & $iscc /DAppVersion=$env:VERSION installer/NimbusX.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Compiling the installer failed.' }
 
-      - name: Upload installer
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/*.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Out-File -FilePath artifacts/SHA256SUMS.txt -Append -Encoding ascii
+          }
+          Get-Content artifacts/SHA256SUMS.txt
+
+      - name: Upload the installer
         uses: actions/upload-artifact@v4
         with:
           name: NimbusX-Setup
-          path: artifacts/*.exe
+          path: |
+            artifacts/NimbusX-Setup-*.exe
+            artifacts/SHA256SUMS.txt
           if-no-files-found: error
+          compression-level: 0

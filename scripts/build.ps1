@@ -53,16 +53,19 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed.' }
     }
 
+    # Self-contained means the user does not need to install the .NET runtime first.
+    $selfContainedFlag = if ($SelfContained) { 'true' } else { 'false' }
+
     Write-Host '==> Publish desktop' -ForegroundColor Cyan
     $desktopOut = Join-Path $Payload 'app'
-    dotnet publish src/NimbusX.Desktop/NimbusX.Desktop.csproj -c Release -r win-x64 --self-contained:$($SelfContained.IsPresent) `
-        -p:Version=$Version -p:PublishDir=$desktopOut -o $desktopOut
+    dotnet publish src/NimbusX.Desktop/NimbusX.Desktop.csproj -c Release -r win-x64 --self-contained $selfContainedFlag `
+        -p:Version=$Version -p:DebugType=none -o $desktopOut
     if ($LASTEXITCODE -ne 0) { throw 'Publishing the desktop app failed.' }
 
     Write-Host '==> Publish CLI' -ForegroundColor Cyan
     $cliOut = Join-Path $Payload 'cli'
-    dotnet publish src/NimbusX.Cli/NimbusX.Cli.csproj -c Release -r win-x64 --self-contained:$($SelfContained.IsPresent) `
-        -p:Version=$Version -o $cliOut
+    dotnet publish src/NimbusX.Cli/NimbusX.Cli.csproj -c Release -r win-x64 --self-contained $selfContainedFlag `
+        -p:Version=$Version -p:DebugType=none -o $cliOut
     if ($LASTEXITCODE -ne 0) { throw 'Publishing the CLI failed.' }
 
     Write-Host "==> Payload ready: $Payload" -ForegroundColor Green

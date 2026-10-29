@@ -163,6 +163,13 @@ FAULTS = [
         "'MountManager' does not implement 'Snapshot'",
     ),
     (
+        'member that does not exist one hop down a property chain',
+        'src/NimbusX.Mount/MountManager.cs',
+        'if (!request.FixedDriveLetter.HasValue)',
+        'if (!request.FixedDriveLetter.HasValueX)',
+        "'request.FixedDriveLetter' is DriveLetter which has no member 'HasValueX'",
+    ),
+    (
         'event handler with the wrong signature',
         'src/NimbusX.Desktop/Views/LoginWindow.xaml.cs',
         'private void OnCancel(object sender, RoutedEventArgs e)',

@@ -9,8 +9,6 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>AnyCPU;x64</Platforms>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-    <SelfContained>false</SelfContained>
-    <PublishSingleFile>false</PublishSingleFile>
     <Description>NimbusX desktop shell: dashboard, cloud drives, game library, accelerator, cache, performance and diagnostics.</Description>
   </PropertyGroup>
 

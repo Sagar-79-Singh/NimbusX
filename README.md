@@ -52,6 +52,22 @@ WinFsp's own installer, which you run yourself.
 4. **Cloud Drives → Add account**, pick a provider, sign in.
 5. **Dashboard → Mount** (or "Mount all"). The drive letter appears in Explorer.
 
+### From the CI build (no toolchain needed)
+
+The GitHub Actions workflows build the real executables on a Windows runner:
+
+| What | Where | Produces |
+|---|---|---|
+| every push to `main` / every pull request | **Actions → build → the run → Artifacts** | `NimbusX-win-x64-exe` (one self-contained `NimbusX.exe`), `NimbusX-win-x64-folder`, `cpx-win-x64`, plus `test-results` |
+| a tag such as `v1.0.0` (or *Run workflow* on **release**) | **Releases** | `NimbusX-Setup-<version>.exe`, a standalone `NimbusX-<version>-win-x64.exe`, `cpx-<version>-win-x64.exe` and `SHA256SUMS.txt` |
+
+So: merge, then open the green run on `main`, download `NimbusX-win-x64-exe` and run it — it is self-contained
+(the .NET runtime is inside the file) and needs no administrator rights. WinFsp is still a separate, visible install;
+NimbusX tells you exactly which build to get and verifies its SHA-256.
+
+> The workflows have never executed either — the machine that wrote this tree had no SDK and no network route to
+> NuGet. If the first run fails, its log is in the same run page; `BUILD_STATUS.md` explains what to look at first.
+
 ### From source
 
 ```powershell
