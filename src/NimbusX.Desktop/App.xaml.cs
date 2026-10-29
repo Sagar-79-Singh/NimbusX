@@ -39,7 +39,7 @@ public partial class App : Application
 
         WebView2LoginSessionFactory browserSessions = new(paths);
 
-        _host = AppHost.TryCreate(paths.Root, browserSessions, new ShellBrowserLauncher(), logger: null, out int? ownerPid);
+        _host = AppHost.TryCreate(out int? ownerPid, paths.Root, browserSessions, new ShellBrowserLauncher(), logger: null);
         if (_host is null)
         {
             MessageBox.Show(

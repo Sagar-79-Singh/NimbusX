@@ -259,7 +259,7 @@ public sealed class CliApplication
             return ExitUsage;
         }
 
-        AppHost? host = AppHost.TryCreate(_dataRoot, logger: null, out int? owner);
+        AppHost? host = AppHost.TryCreate(out int? owner, _dataRoot, logger: null);
         if (host is null)
         {
             Write("Another NimbusX process already owns the data folder (pid " + (owner?.ToString(CultureInfo.InvariantCulture) ?? "unknown") + ").");
@@ -353,7 +353,7 @@ public sealed class CliApplication
             return ExitUsage;
         }
 
-        AppHost? host = AppHost.TryCreate(_dataRoot, logger: null, out int? owner);
+        AppHost? host = AppHost.TryCreate(out int? owner, _dataRoot, logger: null);
         if (host is null)
         {
             Write("Another NimbusX process already owns the data folder (pid " + (owner?.ToString(CultureInfo.InvariantCulture) ?? "unknown") + ").");

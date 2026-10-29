@@ -71,11 +71,11 @@ public sealed class AppHost : IAsyncDisposable
     /// </summary>
     /// <param name="ownerProcessId">Set when another NimbusX already owns the data folder.</param>
     public static AppHost? TryCreate(
+        out int? ownerProcessId,
         string? dataRoot = null,
         IBrowserLoginSessionFactory? browserSessions = null,
         IBrowserLauncher? browser = null,
-        IAppLogger? logger = null,
-        out int? ownerProcessId)
+        IAppLogger? logger = null)
     {
         AppPaths paths = string.IsNullOrWhiteSpace(dataRoot) ? AppPaths.CreateDefault() : new AppPaths(dataRoot!);
         paths.EnsureCreated();
