@@ -11,6 +11,9 @@ writing a large solution without an SDK on the build machine:
   * files that declare more than one top level type with the same name
   * TODO/placeholder markers left in shipping code
   * XAML: binding names that have no matching property on the view model
+  * project/solution structure: missing projects, references, package versions, TFM compatibility
+  * namespace reachability across project references
+  * interface implementation and override validity for types declared in this solution
 
 Exit code 1 when an error is found.
 """
@@ -19,6 +22,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import check_structure
+import check_types
 import check_xaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -304,6 +309,11 @@ def main():
                 continue
             xaml_count += sum(1 for name in filenames if name.endswith('.xaml'))
     ERRORS.extend(xaml_errors)
+
+    structure_errors, _ = check_structure.check(ROOT)
+    ERRORS.extend(structure_errors)
+
+    ERRORS.extend(check_types.check(sorted(cs_files)))
 
     print(f"checked {len(cs_files)} C# files and {xaml_count} XAML files")
     for warning in WARNINGS:
