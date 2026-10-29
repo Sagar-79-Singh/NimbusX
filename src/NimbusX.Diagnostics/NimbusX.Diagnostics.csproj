@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Diagnostics</RootNamespace>
+    <AssemblyName>NimbusX.Diagnostics</AssemblyName>
+    <Description>Environment checks, health report and redacted diagnostics export for NimbusX.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NimbusX.Core\NimbusX.Core.csproj" />
+    <ProjectReference Include="..\NimbusX.Mount\NimbusX.Mount.csproj" />
+    <ProjectReference Include="..\NimbusX.Providers\NimbusX.Providers.csproj" />
+    <ProjectReference Include="..\NimbusX.Cache\NimbusX.Cache.csproj" />
+    <ProjectReference Include="..\NimbusX.Streaming\NimbusX.Streaming.csproj" />
+    <ProjectReference Include="..\NimbusX.Games\NimbusX.Games.csproj" />
+  </ItemGroup>
+
+</Project>

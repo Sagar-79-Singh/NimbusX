@@ -1,0 +1,50 @@
+<Application x:Class="NimbusX.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:NimbusX.Desktop.Converters"
+             xmlns:vm="clr-namespace:NimbusX.Desktop.ViewModels"
+             xmlns:views="clr-namespace:NimbusX.Desktop.Views"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisible" />
+            <conv:BoolToVisibilityConverter x:Key="InverseBoolToVisible" Invert="True" />
+            <conv:StringToVisibilityConverter x:Key="TextToVisible" />
+            <conv:StringToVisibilityConverter x:Key="InverseTextToVisible" Invert="True" />
+            <conv:NullToVisibilityConverter x:Key="NotNullToVisible" />
+            <conv:CountToVisibilityConverter x:Key="CountToVisible" />
+            <conv:CountToVisibilityConverter x:Key="CountToCollapsed" Invert="True" />
+            <conv:FractionToPercentConverter x:Key="FractionToPercent" />
+            <conv:SeverityToBrushConverter x:Key="SeverityToBrush" />
+
+            <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
+                <views:DashboardView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CloudDrivesViewModel}">
+                <views:CloudDrivesView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:GameLibraryViewModel}">
+                <views:GameLibraryView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AcceleratorViewModel}">
+                <views:AcceleratorView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SmartCacheViewModel}">
+                <views:SmartCacheView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:PerformanceViewModel}">
+                <views:PerformanceView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:DiagnosticsViewModel}">
+                <views:DiagnosticsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                <views:SettingsView />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

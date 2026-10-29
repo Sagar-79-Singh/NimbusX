@@ -1,0 +1,166 @@
+<UserControl x:Class="NimbusX.Desktop.Views.SmartCacheView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:NimbusX.Desktop.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="700" d:DesignWidth="1000"
+             mc:Ignorable="d">
+    <ScrollViewer Style="{StaticResource RoundedScrollViewer}">
+        <StackPanel>
+
+            <!-- Budget -->
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="CACHE BUDGET" Style="{StaticResource SectionText}" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <controls:RingMeter Grid.Column="0" Width="96" Height="96" Value="{Binding UsageFraction}" Thickness="9" Margin="0,0,20,0" />
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding UsedText}" Style="{StaticResource MetricText}" />
+                                <TextBlock Text="{Binding BudgetText, StringFormat= of {0}}" Style="{StaticResource MutedText}" VerticalAlignment="Bottom" Margin="6,0,0,4" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding FreeText, StringFormat=Free on the volume: {0}}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding PlanText}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding SafetyText}" Style="{StaticResource MutedText}" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                        <ItemsControl ItemsSource="{Binding Presets}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Label}"
+                                            Command="{Binding DataContext.SelectPresetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Margin="0,0,8,0"
+                                            MinWidth="78">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource BaseButton}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource AccentDeepBrush}" />
+                                                        <Setter Property="BorderBrush" Value="{StaticResource AccentDeepBrush}" />
+                                                        <Setter Property="Foreground" Value="#FF06121F" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBox Width="130" Style="{StaticResource InputTextBox}" Margin="12,0,8,0"
+                                 Text="{Binding CustomBudgetText, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Custom budget, for example 25 GB" />
+                        <Button Content="Use custom" Style="{StaticResource BaseButton}" Command="{Binding ApplyCustomBudgetCommand}" Margin="0,0,16,0" />
+                        <Button Content="Clear cache" Style="{StaticResource DangerButton}" Command="{Binding ClearAllCommand}"
+                                ToolTip="Deletes cached data only. Nothing in the cloud is touched and pinned files are kept." />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource BodyText}" Foreground="{StaticResource AccentBrush}" Margin="0,12,0,0"
+                               Visibility="{Binding StatusMessage, Converter={StaticResource TextToVisible}}" />
+                    <TextBlock Text="{Binding ClearableText, StringFormat=A clear would free: {0}}" Style="{StaticResource MutedText}" Margin="0,6,0,0" />
+
+                    <Border Style="{StaticResource SubtleCard}" Margin="0,12,0,0" BorderBrush="{StaticResource WarningBrush}"
+                            Visibility="{Binding PrefetchPaused, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="Prefetch is paused because the cache disk is under pressure. Game reads still work; only read-ahead stops."
+                                   Style="{StaticResource MutedText}" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- Per-mount usage -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="PER DRIVE" Style="{StaticResource SectionText}" />
+                    <Border Style="{StaticResource SubtleCard}" Visibility="{Binding HasUsage, Converter={StaticResource InverseBoolToVisible}}">
+                        <TextBlock Style="{StaticResource MutedText}" Text="No drives are mounted, so there is no cache data to measure yet." />
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Usage}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource SubtleCard}" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" />
+                                                <TextBlock Text="{Binding DriveLetter}" Style="{StaticResource MutedText}" Margin="8,0,0,0" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Summary}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                                            <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,0">
+                                                <Run Text="{Binding FileCountText, Mode=OneWay}" />
+                                                <Run Text=" · share " />
+                                                <Run Text="{Binding ShareText, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Folder}" FontFamily="{StaticResource MonoFont}" FontSize="10.5"
+                                                       Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="Clear this drive" Style="{StaticResource BaseButton}"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding DataContext.ClearAccountCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Pins -->
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel>
+                    <TextBlock Text="PINNED FILES" Style="{StaticResource SectionText}" />
+                    <TextBlock Style="{StaticResource MutedText}"
+                               Text="A pinned file is never removed by a manual clear on this page. rclone may still evict it when the budget is reached; NimbusX then warms it again." />
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBox Width="360" Style="{StaticResource InputTextBox}" Text="{Binding PinPath, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Path inside the first mounted drive, for example Games\Levels\level01.pak" />
+                        <Button Content="Pin" Style="{StaticResource BaseButton}" Command="{Binding AddPinCommand}" Margin="8,0,0,0" />
+                    </StackPanel>
+
+                    <Border Style="{StaticResource SubtleCard}" Margin="0,12,0,0" Visibility="{Binding HasPins, Converter={StaticResource InverseBoolToVisible}}">
+                        <TextBlock Text="Nothing is pinned." Style="{StaticResource MutedText}" />
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Pins}" Margin="0,6,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding RelativePath}" FontFamily="{StaticResource MonoFont}" FontSize="11.5"
+                                               Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="Unpin" Style="{StaticResource LinkButton}"
+                                            Command="{Binding DataContext.UnpinCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

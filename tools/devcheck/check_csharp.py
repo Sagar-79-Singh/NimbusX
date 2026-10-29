@@ -18,6 +18,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import check_xaml
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # type -> required using, only applied when the using is not already present
@@ -238,6 +241,13 @@ def check_cross_namespace(files):
         body = re.sub(r'//.*', '', text)
         body = re.sub(r'/\*.*?\*/', '', body, flags=re.S)
         members = set(re.findall(r'(?:public|internal|private|protected)\s+(?:static\s+|readonly\s+|override\s+|virtual\s+|async\s+)*[A-Za-z0-9_<>?.,\[\]\s]+?\s+([A-Z][A-Za-z0-9_]*)\s*(?:\{|=>|;|\()', body))
+        # CommunityToolkit.Mvvm source generator: [ObservableProperty] private string _foo; declares Foo
+        for field in re.findall(r'\[ObservableProperty\][^;]*?private\s+[A-Za-z0-9_<>?.,\[\]]+\s+_([A-Za-z0-9_]+)\s*(?:=[^;]*)?;', body, flags=re.S):
+            members.add(field[0].upper() + field[1:])
+        for field in re.findall(r'\[RelayCommand\][^;{]*?\b([A-Za-z0-9_]+)Async\s*\(', body):
+            members.add(field[0].upper() + field[1:] + "Command")
+        for field in re.findall(r'\[RelayCommand\][^;{]*?\b([A-Za-z0-9_]+)\s*\(', body):
+            members.add(field[0].upper() + field[1:] + "Command")
         for type_name, namespaces in declarations.items():
             if type_name in members:
                 continue
@@ -248,7 +258,13 @@ def check_cross_namespace(files):
                 continue
             if type_ns == own:
                 continue
-            if re.search(r'(?<![\w.])' + re.escape(type_name) + r'(?!\w)', body):
+            # A few short type names also occur inside ordinary strings ("Program Files", "Process is
+            # running"), so require member access (Type.Member) before reporting them.
+            if type_name in ('Program', 'Process', 'Task', 'Path', 'App', 'MainWindow'):
+                pattern = r'(?<![\w.])' + re.escape(type_name) + r'\s*\.'
+            else:
+                pattern = r'(?<![\w.])' + re.escape(type_name) + r'(?!\w)'
+            if re.search(pattern, body):
                 ERRORS.append(f"{rel(path)}: uses type '{type_name}' from namespace '{type_ns}' without a using")
 
 
@@ -279,7 +295,17 @@ def main():
             WARNINGS.append(f"type '{name}' declared in {len(places)} files: {', '.join(places)}")
 
     check_cross_namespace(sorted(cs_files))
-    print(f"checked {len(cs_files)} C# files")
+
+    xaml_errors, _ = check_xaml.check(ROOT)
+    xaml_count = 0
+    for base in ('src', 'tests', 'tools'):
+        for dirpath, _, filenames in os.walk(os.path.join(ROOT, base)):
+            if 'obj' in dirpath or 'bin' in dirpath:
+                continue
+            xaml_count += sum(1 for name in filenames if name.endswith('.xaml'))
+    ERRORS.extend(xaml_errors)
+
+    print(f"checked {len(cs_files)} C# files and {xaml_count} XAML files")
     for warning in WARNINGS:
         print("WARN  " + warning)
     for error in ERRORS:

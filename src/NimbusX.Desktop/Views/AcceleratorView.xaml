@@ -1,0 +1,112 @@
+<UserControl x:Class="NimbusX.Desktop.Views.AcceleratorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="700" d:DesignWidth="1000"
+             mc:Ignorable="d">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="GAMES" Style="{StaticResource SectionText}" />
+
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Games}"
+                         SelectedItem="{Binding SelectedGame, Mode=TwoWay}"
+                         Style="{StaticResource NavList}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Name}" FontSize="13.5" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding DisplayFolder}" Style="{StaticResource MutedText}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Grid.Row="2" Text="{Binding PrefetchBudget, StringFormat=Prefetch budget left: {0}}"
+                           Style="{StaticResource MutedText}" Margin="0,10,0,0" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Column="1" Style="{StaticResource RoundedScrollViewer}">
+            <StackPanel>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="WARM START" Style="{StaticResource SectionText}" />
+                        <TextBlock Text="{Binding PredictionText}" Style="{StaticResource MetricText}" FontSize="18" />
+                        <TextBlock Text="{Binding Explanation}" Style="{StaticResource MutedText}" Margin="0,8,0,0" />
+                        <TextBlock Text="{Binding PlanSize, StringFormat=Planned: {0}}" Style="{StaticResource BodyText}" Margin="0,10,0,0" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Button Content="Prepare game"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding PrepareCommand}"
+                                    IsEnabled="{Binding HasSelection}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Cancel"
+                                    Style="{StaticResource BaseButton}"
+                                    Command="{Binding CancelPrepareCommand}"
+                                    Margin="0,0,8,0" />
+                            <Button Content="Refresh plan"
+                                    Style="{StaticResource BaseButton}"
+                                    Command="{Binding RefreshPlanCommand}" />
+                        </StackPanel>
+
+                        <ProgressBar Style="{StaticResource ThinProgress}" IsIndeterminate="True" Margin="0,14,0,0"
+                                     Visibility="{Binding IsPreparing, Converter={StaticResource BoolToVisible}}" />
+
+                        <TextBlock Text="{Binding ResultText}" Style="{StaticResource BodyText}" Margin="0,12,0,0"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   Visibility="{Binding ResultText, Converter={StaticResource TextToVisible}}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="FILES THAT WILL BE WARMED" Style="{StaticResource SectionText}" />
+                        <Border Style="{StaticResource SubtleCard}" Visibility="{Binding HasFiles, Converter={StaticResource InverseBoolToVisible}}">
+                            <TextBlock Style="{StaticResource MutedText}"
+                                       Text="NimbusX has not recorded any files for this game yet. Launch it once through the Game Library; the files it reads are then warmed here before the next launch." />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Files}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource SubtleCard}" Margin="0,0,0,6" Padding="10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Path}" FontFamily="{StaticResource MonoFont}" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Reason}" Style="{StaticResource MutedText}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding SizeText}" Style="{StaticResource MutedText}" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource SubtleCard}" Margin="0,12,0,0">
+                    <TextBlock Style="{StaticResource MutedText}"
+                               Text="Honest limits: NimbusX cannot see inside a running game without injecting code, which it never does. Warming therefore uses what was actually observed (the executable and recorded hot files) and the prediction is the median of verified launches — shown only when there are at least three." />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

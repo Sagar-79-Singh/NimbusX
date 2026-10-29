@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.App</RootNamespace>
+    <AssemblyName>NimbusX.App</AssemblyName>
+    <Description>NimbusX application services: composition root, startup sequence, background loops and the SQLite profile store.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NimbusX.Core\NimbusX.Core.csproj" />
+    <ProjectReference Include="..\NimbusX.Mount\NimbusX.Mount.csproj" />
+    <ProjectReference Include="..\NimbusX.Providers\NimbusX.Providers.csproj" />
+    <ProjectReference Include="..\NimbusX.Cache\NimbusX.Cache.csproj" />
+    <ProjectReference Include="..\NimbusX.Streaming\NimbusX.Streaming.csproj" />
+    <ProjectReference Include="..\NimbusX.Games\NimbusX.Games.csproj" />
+    <ProjectReference Include="..\NimbusX.Diagnostics\NimbusX.Diagnostics.csproj" />
+  </ItemGroup>
+
+</Project>
