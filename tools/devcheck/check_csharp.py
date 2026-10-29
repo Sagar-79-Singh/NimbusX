@@ -18,6 +18,7 @@ writing a large solution without an SDK on the build machine:
   * member existence on plain `Type.Member` references (see check_members.py)
   * constructor arity for `new Type(...)` (see check_calls.py)
   * members of explicitly typed local variables and parameters (see check_locals.py)
+  * framework namespaces imported for the framework types a file names (see check_usings.py)
   * full C# grammar validation with tree-sitter, when it is installed (see check_syntax.py)
   * the [ObservableProperty] / On...Changed contract (see check_toolkit.py)
   * DataTemplate bindings against the item type of the ItemsSource (see check_xaml.py)
@@ -37,6 +38,7 @@ import check_packaging
 import check_signatures
 import check_syntax
 import check_toolkit
+import check_framework_usings
 import check_structure
 import check_types
 import check_xaml
@@ -335,6 +337,7 @@ def main():
     ERRORS.extend(check_locals.check(sorted(cs_files)))
     ERRORS.extend(check_syntax.check(sorted(cs_files)))
     ERRORS.extend(check_toolkit.check(sorted(cs_files)))
+    ERRORS.extend(check_framework_usings.check(sorted(cs_files)))
     ERRORS.extend(check_packaging.check())
 
     print(f"checked {len(cs_files)} C# files and {xaml_count} XAML files")

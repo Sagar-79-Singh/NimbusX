@@ -163,6 +163,13 @@ FAULTS = [
         "'MountManager' does not implement 'Snapshot'",
     ),
     (
+        'framework type used without its using (ImplicitUsings is disabled)',
+        'src/NimbusX.Desktop/ViewModels/AcceleratorViewModel.cs',
+        'using System.Threading.Tasks;\n',
+        '',
+        'uses Task but does not import System.Threading.Tasks',
+    ),
+    (
         'syntax error that no regex would notice',
         'src/NimbusX.Core/AppInfo.cs',
         'public const string Name = "NimbusX";',
