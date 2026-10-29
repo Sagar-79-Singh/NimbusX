@@ -34,24 +34,47 @@ public static class AtomicFile
     /// <summary>Reads JSON, returning <paramref name="fallback"/> when the file is missing or unreadable.</summary>
     public static T? ReadJson<T>(string path, T? fallback = default)
     {
+        T? value = ReadJson(path, fallback, out _);
+        return value;
+    }
+
+    /// <summary>
+    /// Reads JSON like <see cref="ReadJson{T}(string, T?)"/>, and reports why the fallback was used.
+    /// </summary>
+    /// <param name="problem">
+    /// Null when the value was read; otherwise a sentence describing the unreadable file, so the caller can warn
+    /// the user instead of silently replacing their settings with defaults.
+    /// </param>
+    public static T? ReadJson<T>(string path, T? fallback, out string? problem)
+    {
+        problem = null;
         try
         {
             if (!File.Exists(path))
             {
+                problem = "The file does not exist.";
                 return fallback;
             }
 
             string text = File.ReadAllText(path);
             if (string.IsNullOrWhiteSpace(text))
             {
+                problem = "The file is empty.";
                 return fallback;
             }
 
             T? value = JsonDefaults.Deserialize<T>(text);
-            return value is null ? fallback : value;
+            if (value is null)
+            {
+                problem = "The file does not contain the expected object.";
+                return fallback;
+            }
+
+            return value;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            problem = exception.GetType().Name + ": " + exception.Message;
             return fallback;
         }
     }

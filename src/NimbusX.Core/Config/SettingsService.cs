@@ -44,7 +44,18 @@ public sealed class SettingsService
     {
         lock (_gate)
         {
-            AppSettings settings = AtomicFile.ReadJson(_paths.SettingsFile, new AppSettings()) ?? new AppSettings();
+            AppSettings settings =
+                AtomicFile.ReadJson(_paths.SettingsFile, new AppSettings(), out string? problem) ?? new AppSettings();
+            if (problem is not null && File.Exists(_paths.SettingsFile))
+            {
+                // Never replace a settings file silently: say which file could not be read and keep going on defaults.
+                _logger.Warn(
+                    "Could not read " + _paths.SettingsFile + " (" + problem + "). Using default settings; "
+                    + "the unusable file is kept as " + _paths.SettingsFile + ".unreadable.",
+                    "Settings");
+                TryQuarantine(_paths.SettingsFile);
+            }
+
             if (settings.SchemaVersion < AppSettings.CurrentSchemaVersion)
             {
                 _logger.Info(
@@ -55,6 +66,19 @@ public sealed class SettingsService
 
             _current = Normalize(settings);
             return _current;
+        }
+    }
+
+    /// <summary>Keeps the unreadable file next to the new one so the user can inspect it.</summary>
+    private void TryQuarantine(string settingsFile)
+    {
+        try
+        {
+            File.Copy(settingsFile, settingsFile + ".unreadable", overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _logger.Warn("Could not keep a copy of the unreadable settings file: " + exception.Message, "Settings");
         }
     }
 

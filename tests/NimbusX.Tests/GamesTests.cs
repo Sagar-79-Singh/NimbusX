@@ -44,7 +44,19 @@ public sealed class PeInspectorTests
         PeInfo info = PeInspector.Inspect(path);
 
         Assert.False(info.IsPe);
-        Assert.Contains("MZ", info.Detail, StringComparison.Ordinal);
+        Assert.Contains("No 'MZ' signature", info.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_file_too_short_for_a_dos_header_is_reported_instead_of_throwing()
+    {
+        using TempFolder folder = new("pe");
+        string path = folder.WriteBytes("two-bytes.exe", PeBuilder.TooShortForADosHeader());
+
+        PeInfo info = PeInspector.Inspect(path);
+
+        Assert.False(info.IsPe);
+        Assert.Contains("smaller than a DOS header", info.Detail, StringComparison.Ordinal);
     }
 
     [Fact]

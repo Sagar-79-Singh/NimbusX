@@ -94,11 +94,19 @@ Flags:
     {
         IReadOnlyList<string> flags = RcloneFlagCatalog.CoreMountFlags();
 
-        Assert.Equal(0, flags.Count % 2);
-        for (int i = 0; i < flags.Count; i += 2)
+        // Every long flag is followed by exactly one value; standalone switches such as `-vv` carry none.
+        Assert.NotEmpty(flags);
+        for (int i = 0; i < flags.Count; i++)
         {
-            Assert.StartsWith("--", flags[i], StringComparison.Ordinal);
-            Assert.False(flags[i + 1].StartsWith("--", StringComparison.Ordinal));
+            Assert.StartsWith("-", flags[i], StringComparison.Ordinal);
+            if (!flags[i].StartsWith("--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            Assert.True(i + 1 < flags.Count, flags[i] + " has no value");
+            Assert.False(flags[i + 1].StartsWith("-", StringComparison.Ordinal), flags[i] + " has no value");
+            i++;
         }
     }
 

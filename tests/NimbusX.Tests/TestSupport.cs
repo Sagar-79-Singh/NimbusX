@@ -164,7 +164,14 @@ public static class PeBuilder
         return bytes;
     }
 
-    public static byte[] NotAnExecutable() => Encoding.ASCII.GetBytes("this is not a portable executable, just text");
+    /// <summary>Readable bytes that are long enough to have a DOS header, but do not start with "MZ".</summary>
+    public static byte[] NotAnExecutable() =>
+        Encoding.ASCII.GetBytes(
+            "This file is plain text, not a Windows executable. It is deliberately longer than the 64 byte "
+            + "DOS header so the inspector has to reject it on its contents rather than on its size.");
+
+    /// <summary>A file too short to hold a DOS header at all.</summary>
+    public static byte[] TooShortForADosHeader() => Encoding.ASCII.GetBytes("MZ");
 }
 
 /// <summary>Stands in for the real data folder so settings and paths can be tested in isolation.</summary>

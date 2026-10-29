@@ -84,8 +84,11 @@ public sealed class DriveLetterAllocatorTests
 
     [Theory]
     [InlineData("M:", 'M')]
-    [InlineData("m", 'm')]
+    // Drive letters are upper case everywhere in NimbusX; a lower case letter is accepted and normalised.
+    [InlineData("m", 'M')]
     [InlineData("M:\\", 'M')]
+    // A system drive parses like any other letter; the allocator is what refuses letters in use.
+    [InlineData("A:", 'A')]
     public void TryParse_accepts_the_usual_shapes(string text, char expected)
     {
         Assert.True(DriveLetter.TryParse(text, out DriveLetter letter));
@@ -96,7 +99,8 @@ public sealed class DriveLetterAllocatorTests
     [InlineData("")]
     [InlineData("AB")]
     [InlineData("1")]
-    [InlineData("A:")]
+    [InlineData("M:\\extra")]
+    [InlineData("MM:")]
     public void TryParse_rejects_invalid_letters(string text) =>
         Assert.False(DriveLetter.TryParse(text, out _));
 }

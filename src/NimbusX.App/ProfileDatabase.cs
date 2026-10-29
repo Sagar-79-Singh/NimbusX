@@ -271,7 +271,8 @@ public sealed class ProfileDatabase : IDisposable
         List<double> samples = new();
         foreach (LaunchRecord record in RecentLaunches(gameId, 50))
         {
-            if (record.WindowAppeared && record.StartupSeconds is double seconds && seconds > 0)
+            // Only a launch that showed its window and stayed up for the verify window is a startup sample.
+            if (record.WindowAppeared && record.Verified && record.StartupSeconds is double seconds && seconds > 0)
             {
                 samples.Add(seconds);
             }

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using NimbusX.App;
 using NimbusX.Core.Config;
+using NimbusX.Core.Logging;
 using Xunit;
 
 namespace NimbusX.Tests;
@@ -55,10 +56,13 @@ public sealed class SettingsServiceTests
         });
         first.Save();
 
+        // SettingsService keeps in-memory settings until Load() reads the file, which is what a restart does.
         SettingsService second = new(environment.Paths, new RecordingLogger());
-        Assert.True(second.Current.FirstRunCompleted);
-        Assert.Equal(environment.Root, second.Current.CacheRoot);
-        Assert.Equal(30L * 1024 * 1024 * 1024, second.Current.CacheBudgetBytes);
+        AppSettings reloaded = second.Load();
+        Assert.True(reloaded.FirstRunCompleted);
+        Assert.Equal(environment.Root, reloaded.CacheRoot);
+        Assert.Equal(30L * 1024 * 1024 * 1024, reloaded.CacheBudgetBytes);
+        Assert.Same(reloaded, second.Current);
     }
 
     [Fact]
@@ -71,9 +75,13 @@ public sealed class SettingsServiceTests
         RecordingLogger logger = new();
         SettingsService service = new(environment.Paths, logger);
 
-        Assert.NotNull(service.Current);
-        Assert.True(service.Current.NeedsWizard);
-        Assert.NotEmpty(logger.Entries);
+        AppSettings settings = service.Load();
+
+        Assert.NotNull(settings);
+        Assert.True(settings.NeedsWizard);
+        // The file is never replaced silently: the user is warned and the unreadable file is kept.
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.True(File.Exists(environment.Paths.SettingsFile + ".unreadable"));
     }
 
     [Fact]
@@ -180,11 +188,11 @@ public sealed class ProfileDatabaseTests
         using TestEnvironment environment = new();
         using ProfileDatabase database = Open(environment);
 
-        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 8, Verified = true });
-        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 20, Verified = true });
+        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 8, WindowAppeared = true, Verified = true });
+        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 20, WindowAppeared = true, Verified = true });
         Assert.Null(database.MedianStartupSeconds("game-1"));
 
-        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 12, Verified = true });
+        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 12, WindowAppeared = true, Verified = true });
         Assert.Equal(12d, database.MedianStartupSeconds("game-1")!.Value);
     }
 
@@ -196,11 +204,14 @@ public sealed class ProfileDatabaseTests
 
         for (int i = 0; i < 3; i++)
         {
-            database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 10, Verified = true });
+            database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 10, WindowAppeared = true, Verified = true });
         }
 
         // A launch whose window never appeared is a failure, not a one second start.
         database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 1, WindowAppeared = false, Verified = false });
+
+        // A launch that quit before the verify window is not a startup sample either, even with a fast window.
+        database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 1, WindowAppeared = true, Verified = false });
 
         Assert.Equal(10d, database.MedianStartupSeconds("game-1")!.Value);
     }
