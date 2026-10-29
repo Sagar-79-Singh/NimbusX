@@ -149,6 +149,20 @@ FAULTS = [
         "'info' (PeInfo) has no member 'IsExecutable'",
     ),
     (
+        'interface member with a different return type',
+        'src/NimbusX.Core/Processes/IProcessRunner.cs',
+        'Task<ProcessResult> RunAsync',
+        'Task<bool> RunAsync',
+        'but the interface requires Task<bool>',
+    ),
+    (
+        'interface member that the implementation no longer has',
+        'src/NimbusX.Mount/IMountManager.cs',
+        'IReadOnlyList<MountSnapshot> Snapshots { get; }',
+        'IReadOnlyList<MountSnapshot> Snapshot { get; }',
+        "'MountManager' does not implement 'Snapshot'",
+    ),
+    (
         'syntax error that no regex would notice',
         'src/NimbusX.Core/AppInfo.cs',
         'public const string Name = "NimbusX";',

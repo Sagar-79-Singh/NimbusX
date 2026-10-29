@@ -13,7 +13,8 @@ writing a large solution without an SDK on the build machine:
   * XAML: binding names that have no matching property on the view model
   * project/solution structure: missing projects, references, package versions, TFM compatibility
   * namespace reachability across project references
-  * interface implementation and override validity for types declared in this solution
+  * interface implementation (name and shape), override validity, duplicate declarations
+    (see check_types.py and check_signatures.py)
   * member existence on plain `Type.Member` references (see check_members.py)
   * constructor arity for `new Type(...)` (see check_calls.py)
   * members of explicitly typed local variables and parameters (see check_locals.py)
@@ -33,6 +34,7 @@ import check_calls
 import check_locals
 import check_members
 import check_packaging
+import check_signatures
 import check_syntax
 import check_toolkit
 import check_structure
@@ -327,6 +329,7 @@ def main():
     ERRORS.extend(structure_errors)
 
     ERRORS.extend(check_types.check(sorted(cs_files)))
+    ERRORS.extend(check_signatures.check(sorted(cs_files)))
     ERRORS.extend(check_members.check(sorted(cs_files)))
     ERRORS.extend(check_calls.check(sorted(cs_files)))
     ERRORS.extend(check_locals.check(sorted(cs_files)))

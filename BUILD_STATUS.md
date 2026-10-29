@@ -12,19 +12,22 @@ compiler. What it does check:
 | Pass | What it proves |
 |---|---|
 | `check_structure.py` | solution ↔ disk agreement, duplicate project GUIDs, `ProjectReference` targets exist, package versions exist in `Directory.Packages.props`, one namespace per project, every `using NimbusX.*` is reachable through that project's references, XAML `xmlns`/`x:Type`/element types resolve |
-| `check_types.py` | a class implements every member of the interfaces it declares, and `override` only names a real inherited member |
+| `check_types.py` + `check_signatures.py` | a class implements every member of the interfaces it declares *with the same return type and parameter types*, and `override` only names a real inherited member |
 | `check_members.py` | every `Type.Member` reference whose type is declared here actually resolves (partial classes and solution base classes included) |
 | `check_calls.py` | `new T(...)` argument counts and `T.Method(...)` argument counts against the declarations, no instance method called through the type name, no two methods with the same name *and* the same parameter types |
+| `check_locals.py` | `name.Member` and `name.Member(...)` on explicitly typed locals, parameters, `foreach` variables and fields |
 | `check_syntax.py` | the whole tree parses with a real C# grammar (tree-sitter; skipped with a note when it is not installed) |
 | `check_toolkit.py` | every `[ObservableProperty]` field's `On…Changing`/`On…Changed` partial method still matches the generated property type |
 | `check_xaml.py` | well-formed XAML, `{Binding}` paths exist on the page view model (and, inside a `DataTemplate`, on the item type of the `ItemsSource`), `{StaticResource}` keys exist, `Style` `TargetType`/`BasedOn` agree, no duplicate `x:Name`, attributes on custom controls exist, event handlers exist in code-behind |
 | `check_packaging.py` | the Inno Setup script (sections, `Source:` paths, licence/readme files, `PrivilegesRequired=lowest`), the PowerShell scripts (brace balance, `$PSScriptRoot` joins) and the workflow YAML |
-| `selftest.py` | all of the above still *fire*: 19 realistic faults are injected into a copy of the tree, one at a time, and each must be reported |
+| `selftest.py` | all of the above still *fire*: 23 realistic faults are injected into a copy of the tree, one at a time, and each must be reported |
 
 It does **not** type-check expressions, generic arguments, nullability flow, conversion operators, or anything that
-needs the real BCL. Two bugs of exactly that kind were found and fixed while adding the member/call passes
-(`AppInfo.WindowTitle` and `TextFormat.Pluralize` were referenced but never declared), so treat the list above as
-"fewer compiler errors than before", not "compiles".
+needs the real BCL: a value of the wrong type, a missing `using` for an ambiguous name, or a lambda whose body no
+longer matches its delegate still only fail in the compiler. Five bugs of exactly that kind were found and fixed
+while adding these passes (`AppInfo.WindowTitle` and `TextFormat.Pluralize` were referenced but never declared,
+`cpx logs` read `AppPaths.LogsDir`, and two `PeInfo` assertions in the tests used `IsExecutable`/`Description`).
+Treat the list above as "fewer compiler errors than before", not "compiles".
 
 So: expect the first `dotnet build` to produce errors. The table below says what is likely to need attention first.
 
