@@ -92,6 +92,20 @@ FAULTS = [
         "'TextFormat' has no member 'Pluralise'",
     ),
     (
+        'too few arguments to a constructor',
+        'src/NimbusX.Mount/RcloneProvisioner.cs',
+        'new RcloneBinaryInfo(flavor, path, exists: false, checksumVerified: false, version: null, sha256: null, error: null)',
+        'new RcloneBinaryInfo(flavor, path)',
+        "'new RcloneBinaryInfo' takes 7 argument(s) but got 2",
+    ),
+    (
+        'syntax error that no regex would notice',
+        'src/NimbusX.Core/AppInfo.cs',
+        'public const string Name = "NimbusX";',
+        'public const string Name = "NimbusX"',
+        'missing ;',
+    ),
+    (
         'installer wants administrator rights',
         'installer/NimbusX.iss',
         'PrivilegesRequired=lowest',

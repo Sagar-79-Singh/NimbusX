@@ -15,6 +15,8 @@ writing a large solution without an SDK on the build machine:
   * namespace reachability across project references
   * interface implementation and override validity for types declared in this solution
   * member existence on plain `Type.Member` references (see check_members.py)
+  * constructor arity for `new Type(...)` (see check_calls.py)
+  * full C# grammar validation with tree-sitter, when it is installed (see check_syntax.py)
   * installer, build scripts and workflows (see check_packaging.py)
 
 Exit code 1 when an error is found.
@@ -24,8 +26,10 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import check_calls
 import check_members
 import check_packaging
+import check_syntax
 import check_structure
 import check_types
 import check_xaml
@@ -319,6 +323,8 @@ def main():
 
     ERRORS.extend(check_types.check(sorted(cs_files)))
     ERRORS.extend(check_members.check(sorted(cs_files)))
+    ERRORS.extend(check_calls.check(sorted(cs_files)))
+    ERRORS.extend(check_syntax.check(sorted(cs_files)))
     ERRORS.extend(check_packaging.check())
 
     print(f"checked {len(cs_files)} C# files and {xaml_count} XAML files")

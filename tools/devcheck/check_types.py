@@ -35,7 +35,6 @@ def _scan(text):
     out = []
     index = 0
     length = len(text)
-    literal = False
     while index < length:
         character = text[index]
 
@@ -57,7 +56,7 @@ def _scan(text):
             if end < 0:
                 end = length - 3
             index = end + 3
-            literal = True
+            out.append('""')
             continue
 
         if character == '"':
@@ -75,7 +74,7 @@ def _scan(text):
                     continue
                 index += 1
             index += 1
-            literal = True
+            out.append('""')
             continue
 
         if character == "'":
@@ -84,15 +83,13 @@ def _scan(text):
             while index < length and text[index] != "'":
                 index += 2 if text[index] == '\\' else 1
             index += 1
-            literal = True
+            out.append("''")
             continue
 
         out.append(character)
         index += 1
 
-    result = ''.join(out)
-    # Keep the shape of the source (so brace matching stays exact) without leaving string contents behind.
-    return re.sub(r'"[^"\n]*"', '""', result)
+    return ''.join(out)
 
 
 def _strip_comments(text):

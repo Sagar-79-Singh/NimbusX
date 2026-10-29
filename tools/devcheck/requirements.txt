@@ -1,0 +1,5 @@
+# Optional helpers for the devcheck gate. The gate runs without them; it simply says so.
+# Install with:  pip install --break-system-packages -r tools/devcheck/requirements.txt
+pyyaml
+tree-sitter
+tree-sitter-c-sharp

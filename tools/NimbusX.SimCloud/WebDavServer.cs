@@ -355,7 +355,7 @@ public sealed class WebDavServer : IDisposable
         long size = new FileInfo(local).Length;
         long start = 0;
         long end = size > 0 ? size - 1 : 0;
-        bool partial = false;
+        bool isPartial = false;
 
         if (request.Headers.TryGetValue("range", out string? range) && range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))
         {
@@ -373,18 +373,18 @@ public sealed class WebDavServer : IDisposable
                     end = Math.Min(to, size - 1);
                 }
 
-                partial = true;
+                isPartial = true;
             }
         }
 
         long length = end - start + 1;
         StringBuilder headers = new();
-        headers.Append(partial ? "HTTP/1.1 206 Partial Content\r\n" : "HTTP/1.1 200 OK\r\n");
+        headers.Append(isPartial ? "HTTP/1.1 206 Partial Content\r\n" : "HTTP/1.1 200 OK\r\n");
         headers.Append("Content-Type: ").Append(ContentTypeOf(local)).Append("\r\n");
         headers.Append("Content-Length: ").Append(length.ToString(CultureInfo.InvariantCulture)).Append("\r\n");
         headers.Append("Accept-Ranges: bytes\r\n");
         headers.Append("Last-Modified: ").Append(File.GetLastWriteTimeUtc(local).ToString("R", CultureInfo.InvariantCulture)).Append("\r\n");
-        if (partial)
+        if (isPartial)
         {
             headers.Append("Content-Range: bytes ").Append(start.ToString(CultureInfo.InvariantCulture)).Append('-')
                    .Append(end.ToString(CultureInfo.InvariantCulture)).Append('/')
