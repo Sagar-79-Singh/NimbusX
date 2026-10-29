@@ -108,10 +108,58 @@ jobs:
           }
 
       - name: Test
+        id: test
         if: steps.build.outcome == 'success'
-        run: >
-          dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj -c Release --no-build
-          --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal"
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet test tests/NimbusX.Tests/NimbusX.Tests.csproj -c Release --no-build `
+            --logger "trx;LogFileName=results.trx" --logger "console;verbosity=normal" 2>&1 |
+            Tee-Object -FilePath test.log
+          exit $LASTEXITCODE
+
+      - name: Report the failing tests
+        if: steps.test.outcome == 'failure'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $lines = Get-Content test.log
+          $summary = $lines | Select-String -Pattern '^(Passed!|Failed!|Failed\s)' | ForEach-Object { $_.Line.Trim() }
+
+          # The console logger prints "  Failed <name>" followed by the error message; keep that block together.
+          $blocks = New-Object System.Collections.Generic.List[string]
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^\s*Failed\s+\S') {
+              $block = @($lines[$i].Trim())
+              $block += $lines[($i + 1)..([Math]::Min($i + 12, $lines.Count - 1))] | ForEach-Object { $_.TrimEnd() }
+              $blocks.Add(($block -join "`n"))
+            }
+          }
+
+          Write-Host ($summary -join "`n")
+          $blocks | Select-Object -First 25 | ForEach-Object { Write-Host $_ }
+
+          $body = @()
+          $body += '**`dotnet test` failed on this commit.** '
+          $body += ''
+          $body += '```'
+          $body += $summary
+          $body += '```'
+          $body += 'First 25 failing tests with their message:'
+          $body += ''
+          $body += '```'
+          $body += ($blocks | Select-Object -First 25)
+          $body += '```'
+          $body | Out-File -FilePath test-errors.md -Encoding utf8
+
+          if ('${{ github.event_name }}' -eq 'pull_request') {
+            gh pr comment ${{ github.event.pull_request.number }} --body-file test-errors.md
+          }
+
+      - name: Fail the job when the tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
 
       - name: Upload the MSBuild log
         if: always()
