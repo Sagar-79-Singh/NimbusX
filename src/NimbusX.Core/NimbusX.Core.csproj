@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Core</RootNamespace>
+    <AssemblyName>NimbusX.Core</AssemblyName>
+    <Description>NimbusX core primitives: logging with secret redaction, DPAPI secret storage, process execution, drive letters, settings.</Description>
+  </PropertyGroup>
+
+</Project>

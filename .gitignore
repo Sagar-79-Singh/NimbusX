@@ -1,0 +1,33 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+# Bundled binaries (fetched + checksum verified by scripts/fetch-deps.ps1)
+deps/rclone/**
+!deps/rclone/README.md
+deps/terabox/**
+!deps/terabox/README.md
+*.exe
+*.zip
+!installer/**/*.iss
+
+# Local data / secrets / caches
+*.log
+*.nxs
+data/
+nimbusx-data/
+caches/
+TestResults/
+.coverage
+*.trx
+*.nupkg
+*.snk
+secrets/
+*.pfx

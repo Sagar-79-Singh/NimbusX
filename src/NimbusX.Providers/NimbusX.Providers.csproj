@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Providers</RootNamespace>
+    <AssemblyName>NimbusX.Providers</AssemblyName>
+    <Description>One-click provider connect flows: OAuth state machine, credential forms, TeraBox cookie capture, quotas.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NimbusX.Core\NimbusX.Core.csproj" />
+    <ProjectReference Include="..\NimbusX.Mount\NimbusX.Mount.csproj" />
+  </ItemGroup>
+
+</Project>
