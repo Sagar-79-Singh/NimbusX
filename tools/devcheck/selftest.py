@@ -127,6 +127,14 @@ FAULTS = [
         'but the generated property IsMounted is bool',
     ),
     (
+        'method declared twice with the same parameters',
+        'src/NimbusX.Core/Text/TextFormat.cs',
+        'public static string Number(long value) => value.ToString("N0", CultureInfo.InvariantCulture);',
+        'public static string Number(long value) => value.ToString("N0", CultureInfo.InvariantCulture);\n'
+        '\n    public static string Number(long value) => value.ToString();',
+        "'TextFormat' declares 'Number' twice with the same parameters",
+    ),
+    (
         'syntax error that no regex would notice',
         'src/NimbusX.Core/AppInfo.cs',
         'public const string Name = "NimbusX";',

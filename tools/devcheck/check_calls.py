@@ -125,14 +125,36 @@ def _new_expressions(text):
         index = cursor + 1
 
 
+# A declaration starts a line, or follows the closing brace/semicolon/attribute of the previous member. The return
+# type is matched strictly (no bare commas at the top level), which keeps call sites such as
+# `await WriteStatusAsync(...)` or `new Foo(a, b, IsMounted(c))` out of the method table.
+TYPE_PATTERN = (r'(?:\([^()]*\)|'                                   # tuple return type
+                r'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?:<[^()]*>)?(?:\?)?(?:\[\])*)')  # named or generic type
 METHOD_PATTERN = re.compile(
+    r'(?:^|[\n{};\]])\s*'
     r'(?P<mods>(?:\b(?:public|internal|private|protected|static|override|virtual|abstract|async|sealed|'
     r'extern|unsafe|new|readonly)\b\s+)*)'
-    r'(?:[A-Za-z_][\w<>\[\],\.\?\s]*?)\s+(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*'
-    r'\((?P<params>[^()]*(?:\([^()]*\)[^()]*)*)\)')
+    + TYPE_PATTERN + r'\s+(?P<name>[A-Za-z_]\w*)\s*(?:<[^<>()]*>)?\s*'
+    r'\((?P<params>[^()]*(?:\([^()]*\)[^()]*)*)\)', re.M)
 
 NOT_METHODS = {'if', 'for', 'foreach', 'while', 'switch', 'catch', 'using', 'lock', 'return', 'new', 'base',
                'this', 'nameof', 'typeof', 'sizeof', 'default', 'checked', 'unchecked', 'when', 'get', 'set'}
+
+BUILTIN_TYPES = {'void', 'int', 'uint', 'long', 'ulong', 'short', 'ushort', 'byte', 'sbyte', 'bool', 'char',
+                 'string', 'object', 'decimal', 'double', 'float', 'dynamic', 'nint', 'nuint'}
+
+
+def _looks_like_declaration(prefix):
+    """True when the text before the name ends with a type, not with a statement keyword such as await/return."""
+    match = None
+    for match in re.finditer(r'[A-Za-z_]\w*', prefix):
+        pass
+    if match is None:
+        return False
+    word = match.group(0)
+    if word in BUILTIN_TYPES:
+        return True
+    return word[0].isupper()
 
 
 def build_method_index(paths):
@@ -149,6 +171,8 @@ def build_method_index(paths):
                 name = match.group('name')
                 if name in NOT_METHODS or name == decl.name:
                     continue
+                if not _looks_like_declaration(match.group(0)[:match.start('name') - match.start()]):
+                    continue
                 minimum, maximum = _parameter_range(_split_top_level(match.group('params')))
                 is_static = 'static' in (match.group('mods') or '')
                 table.setdefault(name, []).append((minimum, maximum, is_static))
@@ -160,6 +184,31 @@ def _describe(allowed):
         str(minimum) if minimum == maximum else (
             f'{minimum}..' if maximum == INFINITY else f'{minimum}..{maximum}')
         for minimum, maximum, _ in allowed}))
+
+
+def duplicate_methods(paths):
+    """Two methods with the same name and the same parameter types in one type (CS0111)."""
+    errors = []
+    for path in paths:
+        rel = os.path.relpath(path, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        for decl in check_types.parse_types(path, open(path, encoding='utf-8').read()):
+            if decl.keyword not in ('class', 'struct'):
+                continue
+            seen = set()
+            for match in METHOD_PATTERN.finditer(decl.body):
+                name = match.group('name')
+                if name in NOT_METHODS or name == decl.name:
+                    continue
+                if not _looks_like_declaration(match.group(0)[:match.start('name') - match.start()]):
+                    continue
+                signature = tuple(
+                    re.sub(r'\s+', ' ', parameter.strip().rsplit(' ', 1)[0]) if parameter.strip() else ''
+                    for parameter in _split_top_level(match.group('params')))
+                key = (name, signature)
+                if key in seen:
+                    errors.append(f"{rel}: '{decl.name}' declares '{name}' twice with the same parameters")
+                seen.add(key)
+    return errors
 
 
 def check_static_calls(paths, index, bases):
@@ -235,6 +284,7 @@ def check(paths):
             line = text.count('\n', 0, position) + 1
             errors.append(f"{rel}:{line}: 'new {name}' takes {expected} argument(s) but got {count}")
 
+    errors.extend(duplicate_methods(paths))
     method_index, bases = build_method_index(paths)
     errors.extend(check_static_calls(paths, method_index, bases))
     return errors
