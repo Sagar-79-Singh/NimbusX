@@ -143,6 +143,9 @@ def check_workflows():
     except ImportError:
         yaml = None
 
+    if yaml is None:
+        print('note   PyYAML is not installed, workflow YAML is only searched textually')
+
     for path in files:
         rel = os.path.relpath(path, ROOT)
         text = open(path, encoding='utf-8').read()

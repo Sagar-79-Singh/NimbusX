@@ -6,10 +6,25 @@ _Last updated: 2026-10-29_
 
 **This source tree has never been compiled.** It was written in a sandbox without a .NET SDK, without Windows, and
 without network access to NuGet or to any provider. Every C# and XAML file was checked with a purpose-written static
-checker (`tools/devcheck/`), which is not a compiler: it verifies brace balance, using directives, duplicate types,
-`[ObservableProperty]`/`[RelayCommand]` generated members, and (for XAML) well-formedness, `{Binding}` paths against
-the view models, `{StaticResource}` keys and `x:Class`/event handlers. It does **not** type-check expressions, generic
-arguments, overload resolution or nullable flow.
+gate (`tools/devcheck/`, plain Python 3; PyYAML and tree-sitter are optional and only extend it), which is not a
+compiler. What it does check:
+
+| Pass | What it proves |
+|---|---|
+| `check_structure.py` | solution ↔ disk agreement, duplicate project GUIDs, `ProjectReference` targets exist, package versions exist in `Directory.Packages.props`, one namespace per project, every `using NimbusX.*` is reachable through that project's references, XAML `xmlns`/`x:Type`/element types resolve |
+| `check_types.py` | a class implements every member of the interfaces it declares, and `override` only names a real inherited member |
+| `check_members.py` | every `Type.Member` reference whose type is declared here actually resolves (partial classes and solution base classes included) |
+| `check_calls.py` | `new T(...)` argument counts and `T.Method(...)` argument counts against the declarations, no instance method called through the type name, no two methods with the same name *and* the same parameter types |
+| `check_syntax.py` | the whole tree parses with a real C# grammar (tree-sitter; skipped with a note when it is not installed) |
+| `check_toolkit.py` | every `[ObservableProperty]` field's `On…Changing`/`On…Changed` partial method still matches the generated property type |
+| `check_xaml.py` | well-formed XAML, `{Binding}` paths exist on the page view model (and, inside a `DataTemplate`, on the item type of the `ItemsSource`), `{StaticResource}` keys exist, `Style` `TargetType`/`BasedOn` agree, no duplicate `x:Name`, attributes on custom controls exist, event handlers exist in code-behind |
+| `check_packaging.py` | the Inno Setup script (sections, `Source:` paths, licence/readme files, `PrivilegesRequired=lowest`), the PowerShell scripts (brace balance, `$PSScriptRoot` joins) and the workflow YAML |
+| `selftest.py` | all of the above still *fire*: 19 realistic faults are injected into a copy of the tree, one at a time, and each must be reported |
+
+It does **not** type-check expressions, generic arguments, nullability flow, conversion operators, or anything that
+needs the real BCL. Two bugs of exactly that kind were found and fixed while adding the member/call passes
+(`AppInfo.WindowTitle` and `TextFormat.Pluralize` were referenced but never declared), so treat the list above as
+"fewer compiler errors than before", not "compiles".
 
 So: expect the first `dotnet build` to produce errors. The table below says what is likely to need attention first.
 
@@ -17,8 +32,9 @@ So: expect the first `dotnet build` to produce errors. The table below says what
 
 | Item | Status |
 |---|---|
-| Every C# file parses cleanly for braces, usings and duplicate types | ✅ checked (156 files) |
-| Every XAML file is well formed, every binding path exists on a view model, every StaticResource key exists | ✅ checked (14 files) |
+| Every C# file passes the nine passes listed above | ✅ checked (156 files) |
+| Every XAML file is well formed, every binding path exists on a view model or item type, every StaticResource key exists | ✅ checked (14 files) |
+| The gate itself is tested (19 injected faults, all reported) | ✅ `selftest.py`, ~130 s |
 | Pinned third-party digests are the published GitHub values | ✅ recorded in `src/NimbusX.Mount/DependencyVersions.cs` and `docs/VERIFIED_EXTERNALS.md` |
 | `dotnet restore` / `build` / `test` executed | ❌ **never run** — no SDK in the authoring environment |
 | Unit tests executed | ❌ **never run** (127 test methods, ~194 cases once `[InlineData]` rows expand; written, not proven) |
@@ -91,6 +107,7 @@ manager, the rc client, the cache manager, the game scanner and the streaming pr
 1. Paste the errors into an issue; they will be in a small number of places (most likely: an analyzer turned into an
    error by `AnalysisLevel=latest`, a checker-approved but compiler-rejected short type name, or a WPF XAML type that
    needs a different `xmlns`).
-2. `tools/devcheck/check_csharp.py` is the fastest way to confirm you have not introduced a brace or using mistake
-   while fixing; it runs anywhere Python 3 runs.
+2. `python3 tools/devcheck/check_csharp.py` is the fastest way to confirm you have not introduced a namespace,
+   member, arity, syntax or XAML mistake while fixing; it runs anywhere Python 3 runs. `selftest.py` next to it proves
+   the checks still fire.
 3. Everything the app refuses to do is logged with a reason and a fix; `cpx doctor` prints the same list without the UI.
