@@ -241,6 +241,15 @@ jobs:
             Directory.Packages.props
             global.json
 
+      - name: Resolve the version
+        shell: pwsh
+        run: |
+          # Directory.Build.props stamps the assemblies; the workflow env is only the fallback.
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          if (-not $version) { throw 'Directory.Build.props has no <Version>.' }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "NimbusX $version"
+
       - name: Publish NimbusX as one self-contained executable
         shell: pwsh
         run: |
@@ -334,6 +343,15 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      - name: Resolve the version
+        shell: pwsh
+        run: |
+          # Directory.Build.props stamps the assemblies; the workflow env is only the fallback.
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          if (-not $version) { throw 'Directory.Build.props has no <Version>.' }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "NimbusX $version"
+
       - name: Fetch and verify the pinned dependencies
         shell: pwsh
         run: ./scripts/fetch-deps.ps1 -Destination artifacts/payload/tools
@@ -384,6 +402,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve the version
+        shell: bash
+        run: |
+          # Directory.Build.props stamps the assemblies; the workflow env is only the fallback.
+          version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props | head -n 1)"
+          if [ -z "$version" ]; then echo 'Directory.Build.props has no <Version>.' >&2; exit 1; fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "NimbusX $version"
+
       - name: Collect the built files
         uses: actions/download-artifact@v4
         with:
@@ -404,7 +431,7 @@ jobs:
           installer="$(ls artifacts/NimbusX-Setup/NimbusX-Setup-*.exe | head -n 1)"
           cp "$installer" "dist/$(basename "$installer")"
           cd dist
-          sha256sum ./*.exe | tee SHA256SUMS.txt
+          sha256sum *.exe | tee SHA256SUMS.txt
           ls -l
 
       - name: Create or update the release
@@ -416,7 +443,7 @@ jobs:
           tag="v$VERSION"
           if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "NimbusX $VERSION" --generate-notes
+              --title "NimbusX $VERSION" --notes-file .github/release-notes.md
           fi
           gh release upload "$tag" dist/*.exe dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --latest --title "NimbusX $VERSION"
