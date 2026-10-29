@@ -57,7 +57,7 @@ def _parameter_range(parameters):
 
 
 def build_constructor_index(paths):
-    """type name -> set of (min, max) argument counts, or None when it cannot be determined."""
+    """type name -> set of (min, max, visibility) for the constructors declared on the type."""
     ranges = {}
     for path in paths:
         for decl in check_types.parse_types(path, open(path, encoding='utf-8').read()):
@@ -70,9 +70,16 @@ def build_constructor_index(paths):
                 prefix = decl.body[max(0, match.start() - 40):match.start()]
                 if re.search(r'\bstatic\s*$', prefix):
                     continue
-                found.add(_parameter_range(_split_top_level(match.group(1))))
+                visibility = 'private'
+                for candidate in ('public', 'internal', 'protected'):
+                    if re.search(r'\b' + candidate + r'\b', prefix):
+                        visibility = candidate
+                        break
+                minimum, maximum = _parameter_range(_split_top_level(match.group(1)))
+                found.add((minimum, maximum, visibility))
             if not found:
-                found.add((0, 0))
+                # No declared constructor means the implicit public parameterless one.
+                found.add((0, 0, 'public'))
             ranges.setdefault(name, set()).update(found)
     return ranges
 
@@ -258,6 +265,36 @@ def check_static_calls(paths, index, bases):
     return errors
 
 
+def check_private_constructors(paths, ranges):
+    """A `private` constructor may only be called from inside the declaring type (otherwise CS0122)."""
+    errors = []
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    for path in paths:
+        raw = open(path, encoding='utf-8').read()
+        declarations = check_types.parse_types(path, raw)
+        text = check_types._strip_comments(raw)
+        rel = os.path.relpath(path, root)
+        for name, arguments, position in _new_expressions(text):
+            allowed = ranges.get(name)
+            if not allowed:
+                continue
+            parameters = _split_top_level(arguments)
+            count = 0 if len(parameters) == 1 and not parameters[0].strip() else len(parameters)
+            if any(not parameter.strip() for parameter in parameters):
+                continue
+            matching = [entry for entry in allowed if entry[0] <= count <= entry[1]]
+            if not matching or any(visibility != 'private' for _, _, visibility in matching):
+                continue
+            enclosing = {
+                decl.name for decl in declarations
+                if decl.body_start <= position <= decl.body_start + len(decl.body)}
+            if name in enclosing:
+                continue
+            line = text.count('\n', 0, position) + 1
+            errors.append(f"{rel}:{line}: 'new {name}' calls a private constructor from outside '{name}'")
+    return errors
+
+
 def check(paths):
     ranges = build_constructor_index(paths)
     errors = []
@@ -275,15 +312,16 @@ def check(paths):
             if any(parameter.lstrip().startswith(('{', '(')) and count > 0 for parameter in parameters):
                 # Newlines in an argument list, initializers or casts confuse a comma count; skip.
                 pass
-            if any(minimum <= count <= maximum for minimum, maximum in allowed):
+            if any(minimum <= count <= maximum for minimum, maximum, _ in allowed):
                 continue
             expected = ', '.join(sorted({
                 str(minimum) if minimum == maximum else (
                     f'{minimum}..' if maximum == INFINITY else f'{minimum}..{maximum}')
-                for minimum, maximum in allowed}))
+                for minimum, maximum, _ in allowed}))
             line = text.count('\n', 0, position) + 1
             errors.append(f"{rel}:{line}: 'new {name}' takes {expected} argument(s) but got {count}")
 
+    errors.extend(check_private_constructors(paths, ranges))
     errors.extend(duplicate_methods(paths))
     method_index, bases = build_method_index(paths)
     errors.extend(check_static_calls(paths, method_index, bases))
@@ -297,7 +335,7 @@ if __name__ == '__main__':
         for dirpath, dirnames, filenames in os.walk(os.path.join(root, base)):
             dirnames[:] = [d for d in dirnames if d not in ('obj', 'bin')]
             paths.extend(os.path.join(dirpath, name) for name in filenames if name.endswith('.cs'))
-    problems = check(sorted(paths))
+    problems = sorted(set(check(sorted(paths))))
     for problem in problems:
         print('ERROR ' + problem)
     print(f"{len(problems)} constructor error(s)")

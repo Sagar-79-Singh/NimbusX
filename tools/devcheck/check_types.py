@@ -11,7 +11,7 @@ TYPE_KEYWORDS = ('class', 'struct', 'interface', 'record', 'enum')
 
 
 class TypeDecl:
-    def __init__(self, path, namespace, keyword, name, bases, body, is_abstract, is_static):
+    def __init__(self, path, namespace, keyword, name, bases, body, is_abstract, is_static, body_start=0):
         self.path = path
         self.namespace = namespace
         self.keyword = keyword
@@ -20,6 +20,8 @@ class TypeDecl:
         self.body = body
         self.is_abstract = is_abstract
         self.is_static = is_static
+        # Offset of the body's first character inside the comment-stripped file text.
+        self.body_start = body_start
 
     @property
     def qualified(self):
@@ -152,7 +154,8 @@ def parse_types(path, text):
             bases=bases,
             body=text[brace + 1:close],
             is_abstract='abstract' in mods,
-            is_static='static' in mods))
+            is_static='static' in mods,
+            body_start=brace + 1))
     return found
 
 

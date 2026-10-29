@@ -99,6 +99,13 @@ FAULTS = [
         "'new RcloneBinaryInfo' takes 7 argument(s) but got 2",
     ),
     (
+        'private constructor called from outside its type',
+        'src/NimbusX.Core/Windows/DriveLetter.cs',
+        'public DriveLetter(char letter)',
+        'private DriveLetter(char letter)',
+        "calls a private constructor from outside 'DriveLetter'",
+    ),
+    (
         'static helper called with too few arguments',
         'src/NimbusX.Providers/CloudAccount.cs',
         'return ByteSize.Format(QuotaUsedBytes.Value) + " of "',
