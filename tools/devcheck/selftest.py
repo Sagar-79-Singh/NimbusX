@@ -77,6 +77,27 @@ FAULTS = [
         'Style="{StaticResource SectionTxet}"',
         "StaticResource 'SectionTxet' is not defined",
     ),
+    (
+        'call to a static member that does not exist',
+        'src/NimbusX.Desktop/MainWindow.xaml.cs',
+        'Title = AppInfo.WindowTitle;',
+        'Title = AppInfo.WindowTitles;',
+        "'AppInfo' has no member 'WindowTitles'",
+    ),
+    (
+        'call to a formatting helper that does not exist',
+        'src/NimbusX.Desktop/ViewModels/GameLibraryViewModel.cs',
+        'TextFormat.Pluralize(Games.Count, "game")',
+        'TextFormat.Pluralise(Games.Count, "game")',
+        "'TextFormat' has no member 'Pluralise'",
+    ),
+    (
+        'installer wants administrator rights',
+        'installer/NimbusX.iss',
+        'PrivilegesRequired=lowest',
+        'PrivilegesRequired=admin',
+        'must not require administrator rights',
+    ),
 ]
 
 

@@ -146,6 +146,32 @@ public static class TextFormat
     /// <summary>Thousands separated integer.</summary>
     public static string Number(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
+    /// <summary>"1 game", "12 games". Returns the noun that follows a count, already inflected for it.</summary>
+    public static string Pluralize(long count, string singular)
+    {
+        Guard.NotNullOrWhiteSpace(singular, nameof(singular));
+        if (count == 1)
+        {
+            return singular;
+        }
+
+        char last = singular[singular.Length - 1];
+        if (last is 's' or 'x' or 'z' || singular.EndsWith("ch", StringComparison.OrdinalIgnoreCase)
+            || singular.EndsWith("sh", StringComparison.OrdinalIgnoreCase))
+        {
+            return singular + "es";
+        }
+
+        if (last is 'y' && singular.Length > 1 && !IsVowel(singular[singular.Length - 2]))
+        {
+            return singular[..^1] + "ies";
+        }
+
+        return singular + "s";
+
+        static bool IsVowel(char value) => "aeiouAEIOU".IndexOf(value) >= 0;
+    }
+
     /// <summary>Formats a rate in Mbps.</summary>
     public static string Megabits(double megabytesPerSecond) =>
         (megabytesPerSecond * 8d).ToString("0.0", CultureInfo.InvariantCulture) + " Mbps";

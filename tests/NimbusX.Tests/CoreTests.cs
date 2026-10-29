@@ -247,4 +247,17 @@ public sealed class FormattingTests
         string text = TextFormat.Duration(TimeSpan.FromSeconds(75));
         Assert.Contains("1", text, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData(0, "game", "games")]
+    [InlineData(1, "game", "game")]
+    [InlineData(2, "game", "games")]
+    [InlineData(2, "box", "boxes")]
+    [InlineData(2, "drive", "drives")]
+    [InlineData(3, "library", "libraries")]
+    [InlineData(3, "day", "days")]
+    public void TextFormat_pluralizes_a_counted_noun(int count, string singular, string expected)
+    {
+        Assert.Equal(expected, TextFormat.Pluralize(count, singular));
+    }
 }

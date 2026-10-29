@@ -26,18 +26,86 @@ class TypeDecl:
         return (self.namespace + '.' if self.namespace else '') + self.name
 
 
+def _scan(text):
+    """Walk C# source once, copying code through and handling comments, strings and chars.
+
+    A naive `re.sub(r'//.*', ...)` breaks on regex patterns that contain `//` (SecretRedactor has several), which
+    silently truncated a class body and made the member checks blind. This scanner is the fix.
+    """
+    out = []
+    index = 0
+    length = len(text)
+    literal = False
+    while index < length:
+        character = text[index]
+
+        if character == '/' and index + 1 < length and text[index + 1] == '/':
+            while index < length and text[index] != '\n':
+                index += 1
+            continue
+
+        if character == '/' and index + 1 < length and text[index + 1] == '*':
+            index += 2
+            while index + 1 < length and not (text[index] == '*' and text[index + 1] == '/'):
+                index += 1
+            index = min(index + 2, length)
+            continue
+
+        if text.startswith('"""', index):
+            # C# 11 raw string literal: ends at the next run of three or more quotes.
+            end = text.find('"""', index + 3)
+            if end < 0:
+                end = length - 3
+            index = end + 3
+            literal = True
+            continue
+
+        if character == '"':
+            verbatim = index > 0 and text[index - 1] == '@'
+            start = index
+            index += 1
+            while index < length:
+                if text[index] == '"':
+                    if verbatim and index + 1 < length and text[index + 1] == '"':
+                        index += 2
+                        continue
+                    break
+                if not verbatim and text[index] == '\\':
+                    index += 2
+                    continue
+                index += 1
+            index += 1
+            literal = True
+            continue
+
+        if character == "'":
+            start = index
+            index += 1
+            while index < length and text[index] != "'":
+                index += 2 if text[index] == '\\' else 1
+            index += 1
+            literal = True
+            continue
+
+        out.append(character)
+        index += 1
+
+    result = ''.join(out)
+    # Keep the shape of the source (so brace matching stays exact) without leaving string contents behind.
+    return re.sub(r'"[^"\n]*"', '""', result)
+
+
 def _strip_comments(text):
-    text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)
-    return re.sub(r'//.*', '', text)
+    return _scan(text)
 
 
 def _match_brace(text, start):
+    """Index of the brace that closes the one at `start` (string literals already neutralised by _scan)."""
     depth = 0
     for index in range(start, len(text)):
-        character = text[index]
-        if character == '{':
+        if text[index] == '{':
             depth += 1
-        elif character == '}':
+        elif text[index] == '}':
             depth -= 1
             if depth == 0:
                 return index
@@ -88,7 +156,7 @@ def parse_types(path, text):
 
 MEMBER_PATTERNS = (
     r'(?:public|internal|private|protected|static|readonly|virtual|override|abstract|sealed|async|extern|new|partial|required|const|event|\s)+'
-    r'[A-Za-z_][\w<>\[\],\.\?\s]*?\s+([A-Za-z_]\w*)\s*(?:<[^>()]*>)?\s*\(',
+    r'(?:\([^()]*(?:\([^()]*\)[^()]*)*\)|[A-Za-z_][\w<>\[\],\.\?\s]*?)\s+([A-Za-z_]\w*)\s*(?:<[^>()]*>)?\s*\(',
     r'(?:public|internal|private|protected|static|readonly|virtual|override|abstract|sealed|new|required)\s+'
     r'[A-Za-z_][\w<>\[\],\.\?\s]*?\s+([A-Za-z_]\w*)\s*(?:\{|=>)',
     r'\bevent\s+[A-Za-z_][\w<>\[\],\.\?]*\s+([A-Za-z_]\w*)',

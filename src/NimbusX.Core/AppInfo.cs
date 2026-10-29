@@ -23,6 +23,9 @@ public static class AppInfo
     /// <summary>Env var that carries the rclone config encryption key (never a command line).</summary>
     public const string ConfigPassEnvVar = "RCLONE_CONFIG_PASS";
 
+    /// <summary>Window title used by the desktop shell: "NimbusX 0.7.0".</summary>
+    public static string WindowTitle => Name + " " + Version;
+
     /// <summary>Version string from the assembly, or 0.0.0 when unknown.</summary>
     public static string Version
     {
