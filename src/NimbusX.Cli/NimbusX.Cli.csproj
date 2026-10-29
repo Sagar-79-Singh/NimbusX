@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Cli</RootNamespace>
+    <AssemblyName>cpx</AssemblyName>
+    <Description>cpx - the NimbusX command line: status, mounting, cache, games, streaming and diagnostics.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NimbusX.App\NimbusX.App.csproj" />
+  </ItemGroup>
+
+</Project>

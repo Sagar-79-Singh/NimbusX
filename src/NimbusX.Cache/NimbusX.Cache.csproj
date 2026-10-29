@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Cache</RootNamespace>
+    <AssemblyName>NimbusX.Cache</AssemblyName>
+    <Description>Smart cache: budget split across drives, DiskSafetyGuard, physical vs logical usage, marker-guarded clearing, pinning.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NimbusX.Core\NimbusX.Core.csproj" />
+    <ProjectReference Include="..\NimbusX.Mount\NimbusX.Mount.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.SimCloud</RootNamespace>
+    <AssemblyName>NimbusX.SimCloud</AssemblyName>
+    <Description>A local WebDAV server used to test NimbusX mounts, cache and streaming without a real cloud account.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NimbusX.Core\NimbusX.Core.csproj" />
+  </ItemGroup>
+
+</Project>

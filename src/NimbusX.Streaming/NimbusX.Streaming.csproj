@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>NimbusX.Streaming</RootNamespace>
+    <AssemblyName>NimbusX.Streaming</AssemblyName>
+    <Description>Local media streaming proxy and read-ahead prefetcher for NimbusX cloud drives.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NimbusX.Core\NimbusX.Core.csproj" />
+    <ProjectReference Include="..\NimbusX.Mount\NimbusX.Mount.csproj" />
+    <ProjectReference Include="..\NimbusX.Cache\NimbusX.Cache.csproj" />
+  </ItemGroup>
+
+</Project>

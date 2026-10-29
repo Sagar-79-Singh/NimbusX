@@ -1,0 +1,156 @@
+<Window x:Class="NimbusX.Desktop.Views.AddAccountWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        Title="Add a cloud account"
+        Width="920"
+        Height="640"
+        MinWidth="820"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundBrush}"
+        FontFamily="{StaticResource UiFont}"
+        Foreground="{StaticResource TextBrush}"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        mc:Ignorable="d">
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,14,0" Padding="12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="PROVIDERS" Style="{StaticResource SectionText}" Margin="6,4,0,8" />
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Providers}"
+                         SelectedItem="{Binding SelectedProvider, Mode=TwoWay}"
+                         Style="{StaticResource NavList}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           FontSize="15" Width="24" VerticalAlignment="Center" Foreground="{StaticResource AccentBrush}" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="13" />
+                                    <TextBlock Text="{Binding ConnectKindText}" Style="{StaticResource MutedText}" FontSize="10.5" />
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="1" Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="{Binding SelectedProvider.DisplayName}" FontFamily="{StaticResource DisplayFont}" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding SelectedProvider.Description}" Style="{StaticResource SubHeaderText}" Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding SelectedProvider.ConnectNote}" Style="{StaticResource MutedText}" Margin="0,6,0,0"
+                               Visibility="{Binding SelectedProvider.ConnectNote, Converter={StaticResource TextToVisible}}" />
+                    <Border Style="{StaticResource SubtleCard}" Margin="0,10,0,0" BorderBrush="{StaticResource WarningBrush}"
+                            Visibility="{Binding SelectedProvider.IsExperimental, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel>
+                            <TextBlock Text="Experimental provider" FontWeight="SemiBold" FontSize="12.5" Foreground="{StaticResource WarningBrush}" />
+                            <TextBlock Text="{Binding SelectedProvider.Warning}" Style="{StaticResource MutedText}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="1" Style="{StaticResource RoundedScrollViewer}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding Fields}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <TextBlock Text="{Binding Label}" Style="{StaticResource BodyText}" FontWeight="SemiBold" Margin="0,0,0,5" />
+                                        <TextBox Style="{StaticResource InputTextBox}"
+                                                 Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                 Visibility="{Binding IsPlain, Converter={StaticResource BoolToVisible}}" />
+                                        <PasswordBox Style="{StaticResource InputPasswordBox}"
+                                                     PasswordChanged="OnSecretChanged"
+                                                     Visibility="{Binding IsSecret, Converter={StaticResource BoolToVisible}}" />
+                                        <ComboBox ItemsSource="{Binding Choices}"
+                                                  SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"
+                                                  Background="{StaticResource SurfaceRaisedBrush}"
+                                                  Foreground="{StaticResource TextBrush}"
+                                                  BorderBrush="{StaticResource BorderBrush}"
+                                                  Padding="8,6"
+                                                  Visibility="{Binding IsChoice, Converter={StaticResource BoolToVisible}}" />
+                                        <TextBlock Text="{Binding Help}" Style="{StaticResource MutedText}" Margin="0,5,0,0"
+                                                   Visibility="{Binding HasHelp, Converter={StaticResource BoolToVisible}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <TextBlock Text="Name this drive" Style="{StaticResource MutedText}" VerticalAlignment="Center" Width="150" />
+                            <TextBox Width="260" Style="{StaticResource InputTextBox}"
+                                     Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <CheckBox Style="{StaticResource ToggleSwitch}" Content="Mount this drive automatically at startup"
+                                  IsChecked="{Binding AutoMount}" Margin="0,0,0,12" />
+
+                        <Border Style="{StaticResource SubtleCard}" BorderBrush="{StaticResource DangerBrush}" Margin="0,0,0,12"
+                                Visibility="{Binding HasError, Converter={StaticResource BoolToVisible}}">
+                            <StackPanel>
+                                <TextBlock Text="The provider did not accept the sign-in" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}" FontSize="12.5" />
+                                <TextBlock Text="{Binding ErrorText}" Style="{StaticResource BodyText}" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding FixText}" Style="{StaticResource MutedText}" Margin="0,6,0,0"
+                                           Visibility="{Binding HasFix, Converter={StaticResource BoolToVisible}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Visibility="{Binding HasAuthUrl, Converter={StaticResource BoolToVisible}}" Margin="0,0,0,12">
+                            <TextBlock Text="A browser window should have opened. If it did not, use this link:" Style="{StaticResource MutedText}" />
+                            <Button Content="Open the sign-in page" Style="{StaticResource LinkButton}" HorizontalAlignment="Left"
+                                    Command="{Binding OpenAuthUrlCommand}" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <ProgressBar Style="{StaticResource ThinProgress}" IsIndeterminate="True" Margin="0,0,0,10"
+                                     Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVisible}}" />
+
+                        <ItemsControl ItemsSource="{Binding Steps}" Margin="0,0,0,10">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                               Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" Margin="0,1" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Grid Grid.Row="2" Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource MutedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="Provider help" Style="{StaticResource LinkButton}" Command="{Binding OpenHelpCommand}" Margin="0,0,12,0" />
+                        <Button Content="Close" Style="{StaticResource BaseButton}" Command="{Binding CancelCommand}"
+                                IsEnabled="{Binding IsConnecting, Converter={StaticResource InverseBoolToVisible}}" Margin="0,0,8,0" />
+                        <Button Content="Connect" Style="{StaticResource PrimaryButton}" Command="{Binding ConnectCommand}"
+                                IsEnabled="{Binding IsConnecting, Converter={StaticResource InverseBoolToVisible}}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
