@@ -60,6 +60,11 @@ public static class SecretRedactor
         string result = text;
 
         result = RcloneTokenBlobPattern.Replace(result, m => m.Groups["key"].Value + Placeholder);
+
+        // Bearer headers must be handled before the key/value pass: that pass stops at the first space, so it would
+        // replace the word "Bearer" and leave the token itself in place.
+        result = BearerHeaderPattern.Replace(result, m => m.Groups["prefix"].Value + Placeholder);
+
         result = KeyValuePattern.Replace(
             result,
             m => string.Equals(m.Groups["val"].Value, Placeholder, StringComparison.Ordinal)
@@ -68,9 +73,6 @@ public static class SecretRedactor
         result = UrlCredentialPattern.Replace(
             result,
             m => m.Groups["scheme"].Value + m.Groups["user"].Value + ":" + Placeholder + "@");
-        result = BearerHeaderPattern.Replace(
-            result,
-            m => m.Groups["prefix"].Value + Placeholder);
         result = KnownTokenShapePattern.Replace(
             result,
             m => Placeholder);

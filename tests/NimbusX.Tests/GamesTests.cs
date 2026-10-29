@@ -112,9 +112,10 @@ public sealed class GameConfidenceTests
     [Fact]
     public void Confidence_levels_are_ordered_from_unknown_to_confirmed()
     {
-        Assert.True(GameConfidence.Unknown < GameConfidence.Possible);
-        Assert.True(GameConfidence.Possible < GameConfidence.Likely);
-        Assert.True(GameConfidence.Likely < GameConfidence.Confirmed);
+        // Enums do not support relational operators in C#, so the order is compared by value.
+        Assert.True((int)GameConfidence.Unknown < (int)GameConfidence.Possible);
+        Assert.True((int)GameConfidence.Possible < (int)GameConfidence.Likely);
+        Assert.True((int)GameConfidence.Likely < (int)GameConfidence.Confirmed);
     }
 
     [Fact]

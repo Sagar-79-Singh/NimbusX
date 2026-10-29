@@ -31,10 +31,16 @@ support is refused rather than passed on blindly).
 
 ## TeraBox auth method (verified against the fork)
 
-The `terabox` backend of `1.75.2-extra` authenticates with the browser session cookie `ndus`:
+The `terabox` backend of `1.75.2-extra` authenticates with the browser session cookie `ndus`. Read from
+`backend/terabox/terabox.go` of that release:
 
-* option `cookie`, value is either the bare `ndus` value or a full cookie string (`ndus=<value>; lang=en`);
-* option `domain`, one of `terabox.com`, `terabox.app`, `freeterabox.com`, `1024tera.com`.
+* option `cookie` (required, `Advanced: false`): either the bare `ndus` value or a full cookie string. The backend
+  passes it through `valueCookie(...)`, which accepts `ndus=<value>; lang=en`. NimbusX always sends the full form.
+* option `domain` (advanced, default `https://www.terabox.com`): the backend accepts a bare domain too — if the value
+  does not match `https?://` it prefixes `https://` itself, so both forms work. NimbusX's UI offers the four official
+  domains as full URLs.
+* other options the backend defines: `delete_permanently` (default false), `upload_threads` (default 5),
+  `user_agent`, `debug_level`, `encoding`.
 
 NimbusX therefore opens the provider's real sign-in page in an embedded WebView2 window (its own profile folder,
 no injected scripts), waits for the user to press **Done**, and reads only the cookies for the chosen domain. The

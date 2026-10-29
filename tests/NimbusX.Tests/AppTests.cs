@@ -185,7 +185,7 @@ public sealed class ProfileDatabaseTests
         Assert.Null(database.MedianStartupSeconds("game-1"));
 
         database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 12, Verified = true });
-        Assert.Equal(12d, database.MedianStartupSeconds("game-1"));
+        Assert.Equal(12d, database.MedianStartupSeconds("game-1")!.Value);
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public sealed class ProfileDatabaseTests
         // A launch whose window never appeared is a failure, not a one second start.
         database.AddLaunch(new LaunchRecord { GameId = "game-1", AccountId = "a", StartedUtc = DateTimeOffset.UtcNow, StartupSeconds = 1, WindowAppeared = false, Verified = false });
 
-        Assert.Equal(10d, database.MedianStartupSeconds("game-1"));
+        Assert.Equal(10d, database.MedianStartupSeconds("game-1")!.Value);
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class ProfileDatabaseTests
 
         IReadOnlyList<LaunchRecord> recent = database.RecentLaunches("game-1", 50);
         Assert.Equal(10, recent.Count);
-        Assert.Equal(29d, recent[0].StartupSeconds);
+        Assert.Equal(29d, recent[0].StartupSeconds!.Value);
     }
 
     [Fact]

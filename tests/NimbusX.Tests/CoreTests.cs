@@ -15,10 +15,11 @@ public sealed class ByteSizeTests
     [Theory]
     [InlineData(0L, "0 B")]
     [InlineData(512L, "512 B")]
-    [InlineData(1024L, "1.0 KB")]
-    [InlineData(1536L, "1.5 KB")]
-    [InlineData(1048576L, "1.0 MB")]
-    [InlineData(1073741824L, "1.0 GB")]
+    [InlineData(1024L, "1.00 KB")]
+    [InlineData(1536L, "1.50 KB")]
+    [InlineData(1048576L, "1.00 MB")]
+    [InlineData(1073741824L, "1.00 GB")]
+    [InlineData(10737418240L, "10.0 GB")]
     public void Format_uses_binary_units(long bytes, string expected) =>
         Assert.Equal(expected, ByteSize.Format(bytes));
 
@@ -144,15 +145,17 @@ public sealed class PathGuardTests
 public sealed class SecretRedactorTests
 {
     [Theory]
-    [InlineData("password=hunter2")]
-    [InlineData("\"access_token\": \"ya29.a0AfH6SMBxxxxxxxxxxxxxxxx\"")]
-    [InlineData("cookie: ndus=abcdef123456")]
-    [InlineData("Authorization: Bearer abcdefghijklmnopqrstuvwxyz")]
-    [InlineData("https://user:s3cret@example.com/dav")]
-    public void Redact_removes_the_secret_but_keeps_the_shape(string text)
+    [InlineData("password=hunter2", "hunter2")]
+    [InlineData("\"access_token\": \"ya29.a0AfH6SMBxxxxxxxxxxxxxxxx\"", "a0AfH6SMBxxxxxxxxxxxxxxxx")]
+    [InlineData("cookie: ndus=abcdef123456", "abcdef123456")]
+    [InlineData("Authorization: Bearer abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxyz")]
+    [InlineData("https://user:s3cret@example.com/dav", "s3cret")]
+    public void Redact_removes_the_secret_but_keeps_the_shape(string text, string secret)
     {
         string redacted = SecretRedactor.Redact(text);
+
         Assert.Contains(SecretRedactor.Placeholder, redacted, StringComparison.Ordinal);
+        Assert.DoesNotContain(secret, redacted, StringComparison.Ordinal);
     }
 
     [Fact]
