@@ -412,16 +412,25 @@ jobs:
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "NimbusX $version"
 
-      - name: Collect the built files
+      # One step per artifact, by name: download-artifact's `pattern` input is a single glob, and a multi-line
+      # value matches nothing at all (it downloads silently and the job fails later with an empty folder).
+      - name: Collect NimbusX.exe
         uses: actions/download-artifact@v4
         with:
+          name: NimbusX-win-x64-exe
           path: artifacts
-          merge-multiple: true
-          # One pattern per line: braces are not part of the glob syntax download-artifact accepts.
-          pattern: |
-            NimbusX-win-x64-exe
-            cpx-win-x64
-            NimbusX-Setup
+
+      - name: Collect cpx.exe
+        uses: actions/download-artifact@v4
+        with:
+          name: cpx-win-x64
+          path: artifacts
+
+      - name: Collect the installer
+        uses: actions/download-artifact@v4
+        with:
+          name: NimbusX-Setup
+          path: artifacts
 
       - name: Assemble the release files and their checksums
         shell: bash
@@ -429,7 +438,10 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           # Look the files up rather than assuming how the artifacts were laid out on disk.
-          find artifacts -type f -printf '%10s  %p\n' | sort -k2 | tee diagnostics.txt
+          {
+            echo "Downloaded $(( $(find artifacts -type f | wc -l) )) file(s):"
+            find artifacts -type f -printf '%10s  %p\n' | sort -k2
+          } | tee diagnostics.txt
 
           exe="$(find artifacts -type f -name 'NimbusX.exe' | head -n 1)"
           cpx="$(find artifacts -type f -name 'cpx.exe' | head -n 1)"
