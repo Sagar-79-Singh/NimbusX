@@ -278,7 +278,7 @@ public sealed class AccountService
                     .VerifyAccessAsync(flavor, account.RcloneTarget, account.RemoteName, header, cancellationToken)
                     .ConfigureAwait(false);
 
-                if (!ok)
+                if (!verify.ok)
                 {
                     return ConnectResult.Fail(
                         "TeraBox rejected the new session: " + verify.error,

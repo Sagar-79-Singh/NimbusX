@@ -159,7 +159,7 @@ public sealed class StreamService : IStreamService, IDisposable
         }
 
         _logger.Info(
-            "Streaming " + normalized + " from " + displayName + " (" + media.Container + ", " + media.SizeText + ") as session " + session.Id + ".",
+            "Streaming " + normalized + " from " + snapshot.DisplayName + " (" + media.Container + ", " + media.SizeText + ") as session " + session.Id + ".",
             "Streaming");
 
         SessionChanged?.Invoke(this, session);
