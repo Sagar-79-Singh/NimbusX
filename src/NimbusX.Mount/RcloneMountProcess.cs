@@ -336,7 +336,7 @@ public sealed class RcloneMountProcess : IDisposable
                 return false;
             }
 
-            bool driveVisible = DriveLetters.IsVisible(_spec.DriveLetter);
+            bool driveVisible = DriveLetterAllocator.IsVisible(_spec.DriveLetter);
             if (driveVisible)
             {
                 bool rcAlive = await Rc.PingAsync(cancellationToken).ConfigureAwait(false);

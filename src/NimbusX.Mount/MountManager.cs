@@ -79,6 +79,9 @@ public sealed class MountManager : IMountManager, IDisposable
 
     public event EventHandler<MountSnapshot>? SessionChanged;
 
+    /// <summary>Raises <see cref="SessionChanged"/> after a snapshot was mutated, so the UI and the CLI see it.</summary>
+    private void RaiseChanged(MountSnapshot snapshot) => SessionChanged?.Invoke(this, snapshot);
+
     public string ConfigPath => _paths.RcloneConfigFile;
 
     public IReadOnlyList<MountSnapshot> Snapshots
@@ -440,7 +443,7 @@ public sealed class MountManager : IMountManager, IDisposable
                 continue;
             }
 
-            bool driveVisible = DriveLetters.IsVisible(session.DriveLetter);
+            bool driveVisible = DriveLetterAllocator.IsVisible(session.DriveLetter);
             bool rcAlive = await process.Rc.PingAsync(cancellationToken).ConfigureAwait(false);
 
             if (driveVisible && rcAlive)
@@ -581,7 +584,7 @@ public sealed class MountManager : IMountManager, IDisposable
                 for (int attempt = 0; attempt < 5 && !reattached; attempt++)
                 {
                     if (!PortAllocator.IsListening(record.RcPort, TimeSpan.FromMilliseconds(300)) &&
-                        !DriveLetters.IsVisible(letter))
+                        !DriveLetterAllocator.IsVisible(letter))
                     {
                         await Task.Delay(300, cancellationToken).ConfigureAwait(false);
                         continue;
@@ -610,11 +613,11 @@ public sealed class MountManager : IMountManager, IDisposable
 
                         MountSession session = new(spec)
                         {
-                            Phase = DriveLetters.IsVisible(letter) ? MountPhase.Ready : MountPhase.Degraded,
+                            Phase = DriveLetterAllocator.IsVisible(letter) ? MountPhase.Ready : MountPhase.Degraded,
                             Process = process,
                             Rc = process.Rc,
                             Reattached = true,
-                            ReadySinceUtc = DriveLetters.IsVisible(letter) ? _clock.UtcNow : null,
+                            ReadySinceUtc = DriveLetterAllocator.IsVisible(letter) ? _clock.UtcNow : null,
                             LastHealthCheckUtc = _clock.UtcNow
                         };
 
