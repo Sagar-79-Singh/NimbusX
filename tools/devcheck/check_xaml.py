@@ -252,12 +252,29 @@ def _check_styles(files):
     return errors
 
 
+TEMPLATE_PATTERN = re.compile(
+    r'<(?:ControlTemplate|DataTemplate|HierarchicalDataTemplate|ItemsPanelTemplate)\b.*?'
+    r'</(?:ControlTemplate|DataTemplate|HierarchicalDataTemplate|ItemsPanelTemplate)>', re.S)
+
+
 def _check_names(path):
+    """x:Name must be unique per scope: once outside a template, and once inside each template."""
     rel = os.path.relpath(path, ROOT_DIR)
     text = _strip_comments(open(path, encoding='utf-8').read())
-    names = re.findall(r'x:Name="([^"]+)"', text)
-    duplicates = sorted({name for name in names if names.count(name) > 1})
-    return [f"{rel}: x:Name '{name}' is used more than once" for name in duplicates]
+    errors = []
+
+    scopes = []
+    outer = text
+    for block in TEMPLATE_PATTERN.findall(text):
+        scopes.append(block)
+        outer = outer.replace(block, '')
+    scopes.append(outer)
+
+    for scope in scopes:
+        names = re.findall(r'x:Name="([^"]+)"', scope)
+        for name in sorted({name for name in names if names.count(name) > 1}):
+            errors.append(f"{rel}: x:Name '{name}' is used more than once in the same scope")
+    return errors
 
 
 def _check_custom_attributes(path, types):
@@ -275,8 +292,8 @@ def _check_custom_attributes(path, types):
         members = types.get(element)
         if members is None:
             continue
-        for attribute, _ in re.findall(r'([A-Za-z_][\w.]*)="([^"]*)"', attributes):
-            if attribute.startswith('x:') or attribute in ('Name',):
+        for attribute, _ in re.findall(r'((?:\w+:)?[A-Za-z_][\w.]*)="([^"]*)"', attributes):
+            if ':' in attribute or attribute in ('Name',):
                 continue
             if '.' in attribute:
                 continue
@@ -369,17 +386,16 @@ def check(root):
 
         # Stronger check: bindings outside a DataTemplate bind against the page view model itself. Inside a
         # DataTemplate the item type is not known statically, so those stay on the permissive pass above.
-        if vm_name is None:
-            continue
-
-        # A window's DataContext is set in code-behind; LoginWindow has none (it only shows a page).
-        outer = re.sub(r'<DataTemplate\b.*?</DataTemplate>', '', cleaned, flags=re.S)
-        outer = re.sub(r'<HierarchicalDataTemplate\b.*?</HierarchicalDataTemplate>', '', outer, flags=re.S)
-        for segment, full in _binding_paths(outer):
-            if segment in page_members:
-                continue
-            errors.append(
-                f"{rel}: binding '{{Binding {full}}}' is used outside a DataTemplate but is not a member of {vm_name}")
+        # The strict binding check needs a known view model; every other check below runs for every file
+        # (LoginWindow has no view model of its own, but its resources and event handlers still must exist).
+        if vm_name is not None:
+            outer = re.sub(r'<DataTemplate\b.*?</DataTemplate>', '', cleaned, flags=re.S)
+            outer = re.sub(r'<HierarchicalDataTemplate\b.*?</HierarchicalDataTemplate>', '', outer, flags=re.S)
+            for segment, full in _binding_paths(outer):
+                if segment in page_members:
+                    continue
+                errors.append(
+                    f"{rel}: binding '{{Binding {full}}}' is used outside a DataTemplate but is not a member of {vm_name}")
 
         for key in re.findall(r'\{StaticResource\s+([^}]+)\}', cleaned):
             name = key.strip()
@@ -414,6 +430,20 @@ def check(root):
                 for handler in handlers:
                     if not re.search(r'\b' + re.escape(handler) + r'\s*\(', code):
                         errors.append(f"{rel}: event handler '{handler}' is not defined in {os.path.basename(code_behind)}")
+                        continue
+                    signature = re.search(
+                        r'\b(?:private|public|protected|internal)\s+(?:async\s+)?(\w+)\s+' + re.escape(handler) +
+                        r'\s*\(([^)]*)\)', code)
+                    if not signature:
+                        continue
+                    if signature.group(1) != 'void':
+                        errors.append(
+                            f"{rel}: event handler '{handler}' returns {signature.group(1)}, a handler must return void")
+                    parameters = [part.strip() for part in signature.group(2).split(',') if part.strip()]
+                    if len(parameters) != 2:
+                        errors.append(
+                            f"{rel}: event handler '{handler}' takes {len(parameters)} parameter(s), "
+                            f"a WPF handler takes (object sender, EventArgs e)")
 
     errors.extend(_check_styles(sorted(xaml_files)))
 

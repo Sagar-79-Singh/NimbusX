@@ -33,7 +33,7 @@ FAULTS = [
         'src/NimbusX.Desktop/Views/DashboardView.xaml',
         '<ScrollViewer Style="{StaticResource RoundedScrollViewer}">',
         '<ScrollViewer x:Name="Body" Style="{StaticResource RoundedScrollViewer}"><Border x:Name="Body" />',
-        "x:Name 'Body' is used more than once",
+        "x:Name 'Body' is used more than once in the same scope",
     ),
     (
         'unknown property on a custom control',
@@ -161,6 +161,13 @@ FAULTS = [
         'IReadOnlyList<MountSnapshot> Snapshots { get; }',
         'IReadOnlyList<MountSnapshot> Snapshot { get; }',
         "'MountManager' does not implement 'Snapshot'",
+    ),
+    (
+        'event handler with the wrong signature',
+        'src/NimbusX.Desktop/Views/LoginWindow.xaml.cs',
+        'private void OnCancel(object sender, RoutedEventArgs e)',
+        'private void OnCancel(object sender)',
+        "event handler 'OnCancel' takes 1 parameter(s)",
     ),
     (
         'framework type used without its using (ImplicitUsings is disabled)',
